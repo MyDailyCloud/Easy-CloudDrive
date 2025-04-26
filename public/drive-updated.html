@@ -7,7 +7,6 @@
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.4.4/build/qrcode.min.js"></script>
-    <script src="/i8n.js"></script>
     <style>
         .folder-icon {
             color: #4f46e5;
@@ -26,7 +25,24 @@
             white-space: pre-wrap;
             font-family: monospace;
         }
+        [v-cloak] { display: none; }
     </style>
+    <script>
+        async function loadLanguage(lang) {
+          try {
+            const response = await fetch(`/i18n.json`);
+            if (!response.ok) {
+              throw new Error('无法加载语言文件');
+            }
+            const data = await response.json();
+            console.log(`Loaded language data for ${lang}:`, data[lang] || data['zh']);
+            return data[lang] || data['zh'];
+          } catch (error) {
+            console.error('加载语言文件时出错:', error);
+            return null;
+          }
+        }
+    </script>
 </head>
 <body class="bg-gray-100">
     <div id="app" class="flex h-screen">
@@ -418,6 +434,918 @@
         </main>
     </div>
 
-    <script src="drive.js"></script>
+    <script>
+        // Vue instance code will go here in the next step
+        // Content of drive.js (Vue instance)
+        const driveApp = new Vue({
+          el: '#app',
+          // --- Data ---
+          data: {
+            files: [],
+            showQR: false,
+            currentFile: null, // For QR code modal title
+            selectedFile: null, // For direct upload
+            uploadProgress: 0,
+            urlToUpload: '',
+            uploadFileName: '', // User override for direct upload filename
+            urlUploadFileName: '', // User override for URL upload filename
+            selectedLanguage: 'zh', // Default language
+            i18n: null, // Holds loaded language data
+            currentPath: '', // Current folder path, e.g., "folder1/subfolder/" or "" for root
+            // breadcrumbs: [], // Replaced by computed pathSegments
+            searchQuery: '',
+            searchResults: [],
+            isSearchMode: false,
+            showCreateFolder: false,
+            newFolderName: '',
+            pageSize: 50, // How many files to fetch per page
+            currentCursor: null, // For R2 pagination
+            hasMoreFiles: false,
+            showRenameModal: false,
+            renameFile: null, // Store the file object being renamed
+            renameNewName: '', // New name input for rename modal
+            showShareModal: false,
+            shareFilePath: '', // Full path of the file being shared
+            shareExpirationDays: 7,
+            shareRequirePassword: false,
+            sharePassword: '',
+            shareUrl: '', // Holds the generated share URL
+            showShareResult: false, // Toggles share modal sections
+            showPreview: false,
+            previewFile: null, // Info of the file being previewed
+            previewType: '', // 'image', 'pdf', 'text', 'video', 'audio'
+            previewContent: '', // URL or text content for preview
+            isPartialContent: false, // Flag if preview content is truncated
+            authToken: localStorage.getItem('authToken') || null, // Load token on init
+          },
+          // --- Computed ---
+          computed: {
+            pathSegments() {
+              if (!this.currentPath) { return []; }
+              // Remove potential trailing slash for splitting, but keep it in segment.path
+              const path = this.currentPath.endsWith('/') ? this.currentPath.slice(0, -1) : this.currentPath;
+              if (!path) return []; // Should not happen if currentPath is not empty and not just '/' 
+
+              const segments = path.split('/');
+              const result = [];
+              let cumulativePath = '';
+              for (let i = 0; i < segments.length; i++) {
+                  if (!segments[i]) continue; // Skip empty segments if any
+                  cumulativePath += segments[i] + '/';
+                  result.push({
+                      name: segments[i],
+                      path: cumulativePath // Path includes the trailing slash
+                  });
+              }
+              return result;
+            }
+          },
+          // --- Methods ---
+          methods: {
+            // --- Auth ---
+            // Example: checkAuth() { if (!this.authToken) { /* redirect or show login */ } } 
+            // Example: logout() { localStorage.removeItem('authToken'); this.authToken = null; /* redirect */ }
+
+            // --- I18n ---
+            $t(key, params = {}) { // Ensure $t uses this.i18n correctly
+                if (!this.i18n) {
+                     // console.warn(`i18n data not loaded, requested key: ${key}`);
+                     return key; // Return key if i18n data isn't loaded
+                }
+                const keys = key.split('.');
+                let value = this.i18n;
+                for (const k of keys) {
+                    if (value === undefined || value === null || !value.hasOwnProperty(k)) {
+                         // console.warn(`i18n key not found: ${key}`);
+                         return key; // Key not found
+                    }
+                    value = value[k];
+                }
+                if (typeof value === 'string') {
+                    return value.replace(/\{\{(\w+)\}\}/g, (_, paramName) => {
+                        return params[paramName] !== undefined ? params[paramName] : `{{${paramName}}}`;
+                    });
+                }
+                return value !== undefined ? value : key; // Return value or key if not a string template
+            },
+            async changeLanguage() {
+                console.log(`Changing language to: ${this.selectedLanguage}`);
+                this.i18n = await loadLanguage(this.selectedLanguage); // Use the global loadLanguage
+                if (this.i18n) {
+                     console.log("i18n data loaded.");
+                     this.updatePageTextInternal(); // Use internal update method
+                } else {
+                     console.error("Failed to load language data.");
+                     // Maybe load default 'zh' data as fallback?
+                }
+            },
+            updatePageTextInternal() { // Renamed to avoid conflict with global updatePageText
+              if (!this.i18n) return;
+              // Update title
+              document.title = this.$t('common.appName');
+              // Update elements with data-i18n - This updates static text elements
+              document.querySelectorAll('[data-i18n]').forEach(element => {
+                const key = element.getAttribute('data-i18n');
+                const text = this.$t(key); // Use Vue's $t method
+                if (element.tagName === 'INPUT' && element.placeholder !== undefined) {
+                     element.placeholder = text;
+                } else if (element.tagName === 'TITLE') {
+                    // Already handled
+                } else {
+                     element.textContent = text;
+                }
+              });
+              // Vue reactivity handles dynamic text bound with {{ $t(...) }} in the template
+              this.$forceUpdate(); // Might help ensure re-render for computed/watched properties affected by $t
+            },
+
+             // --- API Calls & File Operations ---
+            getApiHeaders(contentType = 'application/json') {
+                 const headers = { 'Content-Type': contentType };
+                 // Retrieve token before each API call (in case it changes)
+                 this.authToken = localStorage.getItem('authToken') || null;
+                 if (this.authToken) {
+                      headers['Authorization'] = `Bearer ${this.authToken}`;
+                 } else {
+                     console.warn("Auth token missing for API call.");
+                     // Optionally throw error or redirect here
+                 }
+                 return headers;
+            },
+
+            async fetchFiles() {
+                console.log(`Fetching files for path: '${this.currentPath}', cursor: ${this.currentCursor}, searchMode: ${this.isSearchMode}`);
+                const headers = this.getApiHeaders();
+                // Remove content-type for GET request if using the helper that adds it by default
+                delete headers['Content-Type'];
+
+              try {
+                const endpoint = this.isSearchMode ? '/searchFiles' : '/getfilelist';
+                const params = new URLSearchParams();
+
+                if (this.isSearchMode) {
+                  params.append('query', this.searchQuery);
+                  // Search within the current path (or root if currentPath is empty)
+                  if (this.currentPath) params.append('path', this.currentPath);
+                } else {
+                  // List current path (or root if currentPath is empty)
+                  if (this.currentPath) params.append('path', this.currentPath);
+                  params.append('pageSize', this.pageSize);
+                  if (this.currentCursor) {
+                    params.append('cursor', this.currentCursor);
+                  }
+                }
+                const url = `${endpoint}${params.toString() ? '?' + params.toString() : ''}`;
+                console.log("Fetching URL:", url);
+
+                const response = await fetch(url, { headers });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error(`Fetch error ${response.status}: ${errorText}`);
+                    // Try to parse error JSON
+                    let serverMessage = errorText;
+                    try { serverMessage = JSON.parse(errorText).message || errorText; } catch(e){}
+                    throw new Error(this.$t('drive.messages.fetchError') + ` (${response.status}: ${serverMessage})`);
+                }
+                const data = await response.json();
+                console.log("Fetched data:", data);
+
+                if (this.isSearchMode) {
+                  // Search results structure might be different, adapt as needed
+                  this.searchResults = (data.results || []).map(file => ({
+                        ...file,
+                        // Ensure search results have necessary properties for display if different from list results
+                        relativeName: file.fileName, // Assuming search result has fileName
+                        type: 'file' // Assuming search only returns files
+                  }));
+                } else {
+                  // Process regular list results
+                  const processedFiles = (data.files || []).map(file => ({
+                      ...file,
+                      // Calculate relativeName based on currentPath for consistent display
+                       relativeName: file.name.startsWith(this.currentPath)
+                           ? file.name.substring(this.currentPath.length)
+                           : file.name // Fallback if name doesn't start with path (shouldn't happen)
+                  }));
+                  this.files = processedFiles;
+                  this.currentCursor = data.cursor; // Will be null if no more pages
+                  this.hasMoreFiles = data.hasMore;
+                }
+              } catch (error) {
+                console.error('获取文件列表出错:', error);
+                alert(this.$t('drive.messages.fetchError') + `: ${error.message}`);
+                 // Reset state on error?
+                 this.files = [];
+                 this.searchResults = [];
+                 this.hasMoreFiles = false;
+                 this.currentCursor = null;
+              }
+            },
+            async loadMoreFiles() {
+                if (!this.hasMoreFiles || this.isSearchMode || !this.currentCursor) {
+                     console.log("Load more conditions not met.");
+                     return;
+                }
+                console.log("Loading more files with cursor:", this.currentCursor);
+                const headers = this.getApiHeaders();
+                delete headers['Content-Type'];
+
+              try {
+                const params = new URLSearchParams();
+                if (this.currentPath) params.append('path', this.currentPath);
+                params.append('pageSize', this.pageSize);
+                params.append('cursor', this.currentCursor); // Pass the current cursor
+                const url = `/getfilelist?${params.toString()}`;
+                console.log("Load more URL:", url);
+
+                const response = await fetch(url, { headers });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                     console.error(`Load more error ${response.status}: ${errorText}`);
+                    let serverMessage = errorText;
+                    try { serverMessage = JSON.parse(errorText).message || errorText; } catch(e){}
+                    throw new Error(this.$t('drive.messages.loadMoreError') + ` (${response.status}: ${serverMessage})`);
+                }
+                const data = await response.json();
+                console.log("Load more data:", data);
+
+                const newFiles = (data.files || []).map(file => ({
+                      ...file,
+                      relativeName: file.name.startsWith(this.currentPath)
+                           ? file.name.substring(this.currentPath.length)
+                           : file.name
+                  }));
+                 // Append new files, avoiding duplicates just in case
+                 const existingNames = new Set(this.files.map(f => f.name));
+                 const uniqueNewFiles = newFiles.filter(f => !existingNames.has(f.name));
+                 this.files = [...this.files, ...uniqueNewFiles];
+
+                this.currentCursor = data.cursor;
+                this.hasMoreFiles = data.hasMore;
+              } catch (error) {
+                console.error('加载更多文件出错:', error);
+                alert(this.$t('drive.messages.loadMoreError') + `: ${error.message}`);
+                 this.hasMoreFiles = false; // Stop trying to load more on error
+                 this.currentCursor = null;
+              }
+            },
+            navigateToFolder(file) {
+              if (file.type !== 'folder') return;
+              console.log("Navigating to folder:", file.name);
+              this.currentPath = file.name; // Folder name (full path) includes trailing / 
+              this.currentCursor = null;
+              this.isSearchMode = false;
+              this.searchQuery = '';
+              this.fetchFiles();
+            },
+            navigateToBreadcrumb(segment) {
+               console.log("Navigating via breadcrumb to:", segment.path);
+              this.currentPath = segment.path;
+              this.currentCursor = null;
+              this.isSearchMode = false;
+              this.searchQuery = '';
+              this.fetchFiles();
+            },
+            async searchFiles() {
+              if (!this.searchQuery.trim()) {
+                this.clearSearch();
+                return;
+              }
+              console.log("Searching for:", this.searchQuery, "in path:", this.currentPath);
+              this.isSearchMode = true;
+              this.currentCursor = null; // Reset cursor for search
+              this.files = []; // Clear file list when switching to search mode
+              await this.fetchFiles();
+            },
+            clearSearch() {
+              console.log("Clearing search");
+              this.searchQuery = '';
+              this.isSearchMode = false;
+              this.searchResults = [];
+              this.currentCursor = null;
+              this.fetchFiles(); // Fetch files for the current folder
+            },
+            openCreateFolderModal() {
+              this.showCreateFolder = true;
+              this.newFolderName = '';
+              this.$nextTick(() => {
+                  if (this.$refs.newFolderNameInput) this.$refs.newFolderNameInput.focus();
+              });
+            },
+            async createFolder() {
+              const folderName = this.newFolderName.trim();
+              // Basic validation:不允许为空，不允许包含 / 
+              if (!folderName || folderName.includes('/')) {
+                alert(this.$t('drive.messages.enterValidFolderName'));
+                return;
+              }
+              // Ensure path ends with / 
+              const folderPath = this.currentPath + folderName + '/';
+              console.log("Creating folder:", folderPath);
+              const headers = this.getApiHeaders();
+
+              try {
+                const response = await fetch('/createFolder', {
+                  method: 'POST',
+                  headers: headers,
+                  body: JSON.stringify({ folderPath })
+                });
+                if (!response.ok) {
+                  const error = await response.json();
+                  throw new Error(error.message || this.$t('drive.messages.folderCreateError'));
+                }
+                alert(this.$t('drive.messages.folderCreateSuccess'));
+                this.showCreateFolder = false;
+                this.newFolderName = ''; // Clear input
+                this.fetchFiles(); // Refresh file list
+              } catch (error) {
+                console.error('创建文件夹失败:', error);
+                alert(this.$t('drive.messages.folderCreateError') + `: ${error.message}`);
+              }
+            },
+            openRenameModal(file) {
+              console.log("Opening rename modal for:", file);
+              this.showRenameModal = true;
+              this.renameFile = file; // Store the whole file object
+              // Pre-fill with current relative name (without path prefix)
+              this.renameNewName = file.relativeName;
+              this.$nextTick(() => {
+                   if(this.$refs.renameInput) this.$refs.renameInput.focus();
+              });
+            },
+            async renameFile() {
+              const newName = this.renameNewName.trim();
+              // Basic validation
+              if (!newName || newName.includes('/')) {
+                alert(this.$t('drive.messages.enterValidFileName'));
+                return;
+              }
+              if (!this.renameFile) return;
+
+              const oldFullName = this.renameFile.name;
+              let newFullName;
+              // Construct new full name based on current path and new relative name
+              const pathPrefix = this.currentPath;
+
+              if (this.renameFile.type === 'folder') {
+                   // Folder: ensure trailing slash for new name
+                   newFullName = pathPrefix + newName + '/';
+              } else {
+                   // File: just prepend path
+                   newFullName = pathPrefix + newName;
+              }
+
+              // Prevent renaming to the exact same full name
+              if (oldFullName === newFullName) {
+                  this.showRenameModal = false;
+                   this.renameFile = null;
+                   this.renameNewName = '';
+                  return;
+              }
+
+              console.log(`Renaming '${oldFullName}' to '${newFullName}'`);
+              const headers = this.getApiHeaders();
+
+              try {
+                const response = await fetch('/renameFile', {
+                  method: 'POST',
+                  headers: headers,
+                  body: JSON.stringify({ oldFileName: oldFullName, newFileName: newFullName })
+                });
+                if (!response.ok) {
+                  const error = await response.json();
+                  throw new Error(error.message || this.$t('drive.messages.renameError'));
+                }
+                alert(this.$t('drive.messages.renameSuccess'));
+                this.showRenameModal = false;
+                this.fetchFiles(); // Refresh list
+              } catch (error) {
+                console.error('重命名失败:', error);
+                alert(this.$t('drive.messages.renameError') + `: ${error.message}`);
+              } finally {
+                   this.renameFile = null; // Clear stored file
+                   this.renameNewName = '';
+              }
+            },
+            async deleteFile(file) {
+                const confirmMessage = file.type === 'folder'
+                    ? this.$t('drive.messages.confirmDeleteFolder', { name: file.relativeName })
+                    : this.$t('drive.messages.confirmDelete', { name: file.relativeName });
+
+              if (!confirm(confirmMessage)) {
+                return;
+              }
+              console.log("Deleting:", file.name);
+              const headers = this.getApiHeaders();
+              delete headers['Content-Type']; // No body for DELETE
+
+              try {
+                const response = await fetch(`/deleteFile?path=${encodeURIComponent(file.name)}`, {
+                  method: 'DELETE',
+                  headers: headers
+                });
+                if (!response.ok) {
+                  const error = await response.json();
+                  throw new Error(error.message || this.$t('drive.messages.deleteError'));
+                }
+                alert(this.$t('drive.messages.deleteSuccess'));
+                this.fetchFiles(); // Refresh list
+              } catch (error) {
+                console.error('删除失败:', error);
+                alert(this.$t('drive.messages.deleteError') + `: ${error.message}`);
+              }
+            },
+            handleFileUpload(event) {
+              const file = event.target.files[0];
+              if (file) {
+                  this.selectedFile = file;
+                  // Reset user override filename if a new file is selected, or keep it? Let's reset.
+                  this.uploadFileName = '';
+                  console.log("File selected:", this.selectedFile);
+              } else {
+                  this.selectedFile = null;
+              }
+            },
+            async uploadFile() {
+                if (!this.selectedFile) {
+                    alert(this.$t('drive.messages.selectFile'));
+                    return;
+                }
+
+                // Use user override name or original name, then trim
+                const finalFileName = (this.uploadFileName || this.selectedFile.name).trim();
+                // Basic validation
+                if (!finalFileName || finalFileName.includes('/')) {
+                     alert(this.$t('drive.messages.enterValidFileName'));
+                     return;
+                }
+
+                const fullPath = this.currentPath + finalFileName;
+                console.log(`Uploading file to: ${fullPath}`);
+
+                const fileSize = this.selectedFile.size;
+                 // Simplified: Direct PUT for small files (e.g., < 100MB), MPU for larger
+                 // R2 PUT limit is 5GB, MPU part limit is 5GB. Browser limits are lower.
+                 const useMPU = fileSize > 100 * 1024 * 1024; // Example threshold: 100MB 
+
+                 if (useMPU) {
+                      await this.uploadFileWithMPU(finalFileName, fileSize);
+                 } else {
+                      await this.uploadFileDirectly(finalFileName);
+                 }
+            },
+
+            async uploadFileDirectly(fileName) {
+                 console.log("Uploading directly (PUT)...");
+                 this.uploadProgress = 1; // Indicate start
+                 const headers = this.getApiHeaders('application/octet-stream'); // Correct content type for direct PUT
+
+                 try {
+                      const url = `/uploadfile?path=${encodeURIComponent(this.currentPath)}&fileName=${encodeURIComponent(fileName)}`;
+                      const response = await fetch(url, {
+                           method: 'PUT',
+                           headers: headers,
+                           body: this.selectedFile
+                           // TODO: Add progress tracking for direct PUT if possible (using XMLHttpRequest or fetch ReadableStream)
+                      });
+
+                      if (!response.ok) {
+                           const errorText = await response.text();
+                           throw new Error(`Direct upload failed: ${response.status} ${errorText}`);
+                      }
+
+                      console.log("Direct upload successful.");
+                      this.uploadProgress = 100;
+                      alert(this.$t('drive.messages.uploadSuccess'));
+                      this.resetUploadState();
+                      this.fetchFiles();
+
+                 } catch (error) {
+                      console.error('Direct upload error:', error);
+                      alert(this.$t('drive.messages.uploadError') + `: ${error.message}`);
+                      this.uploadProgress = 0; // Reset progress
+                 }
+            },
+
+             async uploadFileWithMPU(finalFileName, fileSize) {
+                 console.log("Starting MPU upload...");
+                 const chunkSize = 10 * 1024 * 1024; // 10MB parts
+                 const totalChunks = Math.ceil(fileSize / chunkSize);
+                 this.uploadProgress = 0;
+
+                 const baseHeaders = this.getApiHeaders(); // Get headers with token
+
+                 let uploadId = null; // Keep track of uploadId
+
+                 try {
+                     // --- 1. Create MPU ---
+                     console.log("Creating MPU...");
+                     const createResponse = await fetch(`/uploadfile?action=mpu-create`, {
+                         method: 'POST',
+                         headers: { ...baseHeaders, 'Content-Type': 'application/json' }, // Need JSON type here
+                         body: JSON.stringify({
+                             fileName: finalFileName,
+                             path: this.currentPath
+                         })
+                     });
+                     if (!createResponse.ok) throw new Error(`MPU Create failed: ${createResponse.status} ${await createResponse.text()}`);
+                     const createData = await createResponse.json();
+                     uploadId = createData.uploadId; // Store uploadId
+                     if(!uploadId) throw new Error("MPU Create response did not contain uploadId");
+                     console.log("MPU Created, Upload ID:", uploadId);
+
+                     // --- 2. Upload Parts ---
+                     const uploadedParts = [];
+                     for (let i = 0; i < totalChunks; i++) {
+                         const partNumber = i + 1;
+                         const start = i * chunkSize;
+                         const end = Math.min(start + chunkSize, fileSize);
+                         const chunk = this.selectedFile.slice(start, end);
+                         console.log(`Uploading part ${partNumber}/${totalChunks}, size: ${chunk.size}`);
+
+                         // Prepare headers for part upload (remove Content-Type if added by helper)
+                         const partHeaders = { ...baseHeaders };
+                         delete partHeaders['Content-Type']; // R2 expects octet-stream based on body
+
+                         const partUploadUrl = `/uploadfile?action=mpu-uploadpart&uploadId=${uploadId}&partNumber=${partNumber}&path=${encodeURIComponent(this.currentPath)}&fileName=${encodeURIComponent(finalFileName)}`;
+
+                         // Add retry logic for part uploads? For simplicity, not added here.
+                         const partResponse = await fetch(partUploadUrl, {
+                             method: 'PUT',
+                             headers: partHeaders, // Send token, R2 infers content type
+                             body: chunk
+                         });
+
+                         if (!partResponse.ok) throw new Error(`MPU Part ${partNumber} upload failed: ${partResponse.status} ${await partResponse.text()}`);
+
+                         const partData = await partResponse.json();
+                         if (!partData.etag) throw new Error(`MPU Part ${partNumber} response missing ETag`);
+
+                         uploadedParts.push({ partNumber: partNumber, etag: partData.etag });
+                         console.log(`Part ${partNumber} uploaded, ETag: ${partData.etag}`);
+                         this.uploadProgress = Math.round(partNumber / totalChunks * 100);
+                     }
+                     console.log("All parts uploaded:", uploadedParts);
+
+                     // --- 3. Complete MPU ---
+                     console.log("Completing MPU...");
+                     const completeUrl = `/uploadfile?action=mpu-complete&uploadId=${uploadId}&path=${encodeURIComponent(this.currentPath)}&fileName=${encodeURIComponent(finalFileName)}`;
+                     const completeResponse = await fetch(completeUrl, {
+                         method: 'POST',
+                         headers: { ...baseHeaders, 'Content-Type': 'application/json' }, // Need JSON type here
+                         body: JSON.stringify({ parts: uploadedParts })
+                     });
+
+                     if (!completeResponse.ok) {
+                         const errorText = await completeResponse.text();
+                         console.error(`MPU Complete failed: ${completeResponse.status} ${errorText}`);
+                         throw new Error(this.$t('drive.messages.uploadError') + ` (Complete failed: ${completeResponse.status})`);
+                     }
+
+                     console.log("MPU Completed successfully.");
+                     alert(this.$t('drive.messages.uploadSuccess'));
+                     this.resetUploadState();
+                     this.fetchFiles();
+
+                 } catch (error) {
+                     console.error('MPU Upload Error:', error);
+                     alert(this.$t('drive.messages.uploadError') + `: ${error.message}`);
+                     this.uploadProgress = 0; // Reset progress
+
+                     // Attempt to abort if MPU started and failed
+                     if (uploadId) {
+                          console.log("Attempting to abort MPU due to error...");
+                          const abortUrl = `/uploadfile?action=mpu-abort&uploadId=${uploadId}&path=${encodeURIComponent(this.currentPath)}&fileName=${encodeURIComponent(finalFileName)}`;
+                          try {
+                               const abortHeaders = { ...baseHeaders }; // Get headers with token
+                               delete abortHeaders['Content-Type']; // No body for abort DELETE
+                               await fetch(abortUrl, { method: 'DELETE', headers: abortHeaders });
+                               console.log("Abort request sent for uploadId:", uploadId);
+                          } catch (abortError) {
+                               console.error("Failed to send abort request:", abortError);
+                          }
+                     }
+                 }
+             },
+
+            resetUploadState() {
+                 this.selectedFile = null;
+                 this.uploadFileName = '';
+                 this.uploadProgress = 0;
+                 if (this.$refs.fileInput) this.$refs.fileInput.value = null; // Clear file input
+            },
+
+            async uploadFileByUrl() {
+              const urlToUploadTrimmed = this.urlToUpload.trim();
+              const urlUploadFileNameTrimmed = this.urlUploadFileName.trim();
+
+              if (!urlToUploadTrimmed || !this.isValidHttpUrl(urlToUploadTrimmed)) {
+                alert(this.$t('drive.messages.enterValidUrl'));
+                return;
+              }
+              // Basic validation for filename
+              if (!urlUploadFileNameTrimmed || urlUploadFileNameTrimmed.includes('/')) {
+                alert(this.$t('drive.messages.enterValidFileName'));
+                return;
+              }
+
+              const fullPath = this.currentPath + urlUploadFileNameTrimmed;
+              console.log(`Uploading from URL: ${urlToUploadTrimmed} to ${fullPath}`);
+              const headers = this.getApiHeaders();
+
+              // Add loading indicator maybe? 
+              try {
+                const response = await fetch('/uploadbyurl', {
+                  method: 'POST',
+                  headers: headers,
+                  body: JSON.stringify({
+                    url: urlToUploadTrimmed,
+                    path: this.currentPath, // Send current folder path
+                    fileName: urlUploadFileNameTrimmed // Send just the filename
+                  })
+                });
+                if (!response.ok) {
+                     const errorText = await response.text();
+                     console.error(`URL Upload Error ${response.status}: ${errorText}`);
+                     let serverMessage = errorText;
+                     try { serverMessage = JSON.parse(errorText).message || errorText; } catch(e){}
+                    throw new Error(this.$t('drive.messages.urlUploadError') + ` (${response.status}: ${serverMessage})`);
+                }
+                alert(this.$t('drive.messages.urlUploadSuccess'));
+                this.urlToUpload = ''; // Clear inputs on success
+                this.urlUploadFileName = '';
+                this.fetchFiles(); // Refresh list
+              } catch (error) {
+                console.error('通过URL上传文件出错:', error);
+                alert(this.$t('drive.messages.urlUploadError') + `: ${error.message}`);
+              }
+            },
+            async previewFile(file) {
+                if (file.type === 'folder') return;
+                console.log("Attempting to preview file:", file);
+                 // Use file info passed from the list, avoid extra fetch for metadata if possible
+                 const { contentType = '', name: filePath, relativeName } = file;
+
+                const headers = this.getApiHeaders();
+                delete headers['Content-Type']; // No body for preview GET
+
+                try {
+                    // Determine preview type
+                    const isImage = contentType.startsWith('image/');
+                    const isPdf = contentType === 'application/pdf';
+                    // Add more text types if needed (e.g., css, html)
+                    const isText = contentType.startsWith('text/') || ['application/json', 'application/xml', 'application/javascript', 'application/x-yaml', 'application/toml', 'application/markdown'].includes(contentType);
+                    const isVideo = contentType.startsWith('video/');
+                    const isAudio = contentType.startsWith('audio/');
+
+                    if (!(isImage || isPdf || isText || isVideo || isAudio)) {
+                        alert(this.$t('drive.messages.previewNotSupported', { type: contentType || 'unknown' }));
+                        return;
+                    }
+
+                    this.previewFile = file; // Store file info for modal title etc.
+                    if (isImage) this.previewType = 'image';
+                    else if (isPdf) this.previewType = 'pdf';
+                    else if (isText) this.previewType = 'text';
+                    else if (isVideo) this.previewType = 'video';
+                    else if (isAudio) this.previewType = 'audio';
+
+                    this.showPreview = true; // Show modal immediately
+                    this.previewContent = ''; // Indicate loading
+                    this.isPartialContent = false;
+
+                    // Fetch preview content
+                    console.log("Fetching preview content for:", filePath);
+                    const response = await fetch(`/previewFile?file=${encodeURIComponent(filePath)}`, { headers });
+
+                    if (!response.ok) {
+                         const errorText = await response.text();
+                         let serverMessage = errorText;
+                         try { serverMessage = JSON.parse(errorText).message || errorText; } catch(e){}
+                         throw new Error(this.$t('drive.messages.previewError') + ` (${response.status}: ${serverMessage})`);
+                    }
+
+                    this.isPartialContent = response.headers.get('X-Partial-Content') === 'true';
+                    console.log("Is partial content:", this.isPartialContent);
+
+                    const responseContentType = response.headers.get('Content-Type'); // Get actual content type from response
+
+                    if (this.previewType === 'text') {
+                        this.previewContent = await response.text();
+                        console.log("Text preview content loaded.");
+                    } else {
+                        // For binary types, use the content type from the response header
+                        const blob = await response.blob();
+                        const blobUrl = URL.createObjectURL(new Blob([blob], { type: responseContentType || contentType })); // Prefer response header type
+                        this.previewContent = blobUrl;
+                        console.log(`Blob URL created for ${this.previewType} (Type: ${responseContentType || contentType}): ${blobUrl}`);
+                    }
+                } catch (error) {
+                    console.error('预览文件失败:', error);
+                    alert(this.$t('drive.messages.previewError') + `: ${error.message}`);
+                    this.closePreview(); // Close modal on error
+                }
+            },
+            closePreview() {
+              this.showPreview = false;
+              if (this.previewType !== 'text' && this.previewContent && this.previewContent.startsWith('blob:')) {
+                  console.log("Revoking object URL:", this.previewContent);
+                URL.revokeObjectURL(this.previewContent);
+              }
+              this.previewContent = '';
+              this.previewFile = null;
+              this.previewType = '';
+              this.isPartialContent = false;
+            },
+            openShareModal(file) {
+                if (file.type === 'folder') {
+                     alert("文件夹分享暂不支持。"); 
+                     return;
+                }
+              console.log("Opening share modal for:", file.name);
+              this.shareFilePath = file.name; // Store the full path
+              this.shareExpirationDays = 7;
+              this.shareRequirePassword = false;
+              this.sharePassword = '';
+              this.showShareResult = false;
+              this.shareUrl = '';
+              this.showShareModal = true;
+            },
+            async shareFile() {
+                console.log(`Sharing file: ${this.shareFilePath}, expires: ${this.shareExpirationDays} days, password required: ${this.shareRequirePassword}`);
+                const headers = this.getApiHeaders();
+
+              try {
+                const response = await fetch('/shareFile', {
+                  method: 'POST',
+                  headers: headers,
+                  body: JSON.stringify({
+                    filePath: this.shareFilePath,
+                    expirationDays: parseInt(this.shareExpirationDays),
+                    requirePassword: this.shareRequirePassword,
+                    // Only send password field if requirePassword is true and password has value?
+                    // Let backend handle empty password validation if needed.
+                    password: this.shareRequirePassword ? this.sharePassword : undefined
+                  })
+                });
+                if (!response.ok) {
+                    const errorText = await response.text();
+                     console.error(`Share Error ${response.status}: ${errorText}`);
+                     let serverMessage = errorText;
+                     try { serverMessage = JSON.parse(errorText).message || errorText; } catch(e){}
+                    throw new Error(this.$t('drive.messages.shareError') + ` (${response.status}: ${serverMessage})`);
+                }
+                const result = await response.json();
+                if (!result.shareUrl) {
+                     throw new Error("分享响应中未找到 shareUrl");
+                }
+                this.shareUrl = result.shareUrl;
+                this.showShareResult = true; // Show the result section
+                console.log("Share URL created:", this.shareUrl);
+              } catch (error) {
+                console.error('分享文件失败:', error);
+                alert(this.$t('drive.messages.shareError') + `: ${error.message}`);
+              }
+            },
+            copyShareUrl() {
+              if (!this.shareUrl) return;
+              navigator.clipboard.writeText(this.shareUrl).then(() => {
+                alert(this.$t('drive.messages.urlCopied'));
+              }).catch(err => {
+                console.error('无法复制分享链接:', err);
+                alert(this.$t('drive.messages.copyUrlError'));
+              });
+            },
+            showQRCode(file) {
+              if (file.type === 'folder') return;
+              this.currentFile = file; // For modal title
+              // Generate link using the R2 public URL or a dedicated download endpoint
+              const downloadLink = this.getDirectDownloadLink(file.name); // Use helper
+               if (!downloadLink) {
+                    alert(this.$t('drive.messages.qrCodeError'));
+                    return;
+               }
+              console.log("Generating QR Code for:", downloadLink);
+              this.showQR = true;
+              this.$nextTick(() => { // Ensure DOM element exists
+                  const qrElement = document.getElementById('qrcode');
+                  if (!qrElement) {
+                       console.error("QR Code element not found");
+                       return;
+                  }
+                  qrElement.innerHTML = ''; // Clear previous QR code
+                  try {
+                       QRCode.toCanvas(qrElement, downloadLink, { width: 200, margin: 2 }, (error) => {
+                         if (error) {
+                              console.error("QR Code generation failed:", error);
+                              qrElement.innerHTML = `<span class="text-red-500 text-xs">${this.$t('drive.messages.qrCodeError')}</span>`;
+                         } else {
+                            console.log('QR码生成成功');
+                         }
+                       });
+                  } catch (error) {
+                       console.error("QR Code library error:", error);
+                       qrElement.innerHTML = `<span class="text-red-500 text-xs">${this.$t('drive.messages.qrCodeError')}</span>`;
+                  }
+              });
+            },
+            hideQRCode() {
+              this.showQR = false;
+              this.currentFile = null;
+               const qrElement = document.getElementById('qrcode');
+               if(qrElement) qrElement.innerHTML = ''; // Clear QR code canvas
+            },
+            // --- Helpers ---
+            formatFileSize(size) {
+              if (typeof size !== 'number' || size < 0) return '-';
+              if (size === 0) return '0 B';
+              const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB'];
+              const i = Math.floor(Math.log(size) / Math.log(1024));
+              // Ensure i is within bounds of units array
+              const unitIndex = Math.min(i, units.length - 1);
+              return `${(size / Math.pow(1024, unitIndex)).toFixed(unitIndex === 0 ? 0 : 2)} ${units[unitIndex]}`;
+            },
+             formatDate(dateString) {
+              try {
+                if (!dateString) return '-';
+                const date = new Date(dateString);
+                // Check if date is valid
+                if (isNaN(date.getTime())) return dateString;
+                // Use 'zh-CN', 'en-US', 'ko-KR' for better locale formatting if needed
+                const locale = ['zh', 'en', 'ko'].includes(this.selectedLanguage) ? this.selectedLanguage : navigator.language || 'default';
+                return date.toLocaleString(locale, {
+                     year: 'numeric', month: 'short', day: 'numeric',
+                     hour: '2-digit', minute: '2-digit' // Add seconds if desired: second: '2-digit'
+                });
+              } catch (e) {
+                  console.error("Error formatting date:", dateString, e);
+                  return dateString; // Return original string on error
+              }
+            },
+            getDirectDownloadLink(fileName) {
+                // !!! IMPORTANT: Replace with your actual public R2 URL or download endpoint !!!
+                 const baseUrl = window.location.origin; // Use current origin as base for relative paths
+                 // Assuming the file path received (fileName) is the full key in R2
+                 // Example: If R2 public URL is set up via Cloudflare CNAME at the root domain
+                 // return `${baseUrl}/${encodeURIComponent(fileName)}`;
+
+                 // Example: If using a specific download worker endpoint
+                 // return `${baseUrl}/download/${encodeURIComponent(fileName)}`; 
+
+                 // Current Placeholder - MUST BE REPLACED
+                 console.warn("Using hardcoded download link prefix from 'fastdrive.myfastools.com'. Replace in getDirectDownloadLink method.");
+                return `https://fastdrive.myfastools.com/${encodeURIComponent(fileName)}`;
+            },
+            downloadFile(file) {
+               if (file.type === 'folder') return;
+               const downloadLink = this.getDirectDownloadLink(file.name);
+               if (downloadLink) {
+                    console.log("Opening download link:", downloadLink);
+                   window.open(downloadLink, '_blank');
+               } else {
+                    alert(this.$t('drive.messages.downloadLinkError'));
+               }
+            },
+             isValidHttpUrl(string) {
+                 // Basic check for http/https URL format
+                 if (!string || typeof string !== 'string') return false;
+                 return string.startsWith('http://') || string.startsWith('https://');
+            }
+          },
+          // --- Lifecycle Hooks ---
+          async mounted() {
+            console.log("Vue app mounted");
+            // Load language preference or default
+            const initialLang = localStorage.getItem('selectedLanguage') || 'zh';
+            this.selectedLanguage = initialLang;
+             document.documentElement.lang = initialLang; // Set initial html lang
+
+            // Load i18n data FIRST
+            await this.changeLanguage();
+
+            // Check Auth (Example - implement your actual auth check)
+            // this.checkAuth();
+
+            // Fetch initial file list for the root directory
+            this.currentPath = ''; // Ensure starting at root
+            await this.fetchFiles();
+          },
+          // --- Watchers ---
+          watch: {
+               // Save language preference
+               selectedLanguage(newLang) {
+                   localStorage.setItem('selectedLanguage', newLang);
+                    document.documentElement.lang = newLang; // Update html lang attribute
+               },
+               // Optional: Refetch files if currentPath changes (already handled by navigation methods)
+               // currentPath(newPath, oldPath) {
+               //    console.log(`Path changed from ${oldPath} to ${newPath}`);
+               //    this.fetchFiles();
+               // }
+           }
+        });
+    </script>
 </body>
 </html> 
