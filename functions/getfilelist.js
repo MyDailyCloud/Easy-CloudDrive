@@ -51,13 +51,20 @@ export async function onRequest(context) {
 }
 
 async function listFiles(r2Bucket, prefix = '', pageSize = 50, cursor = null) {
-  // 获取指定目录下的所有对象
-  const result = await r2Bucket.list({
+  // 构建 R2 list 的选项对象
+  const listOptions = {
     prefix: prefix,
     delimiter: '/',
-    cursor: cursor,
     limit: pageSize
-  });
+  };
+
+  // 只有在 cursor 是有效字符串时才添加到选项中
+  if (cursor && typeof cursor === 'string') {
+    listOptions.cursor = cursor;
+  }
+
+  // 获取指定目录下的所有对象
+  const result = await r2Bucket.list(listOptions); // 使用构建好的 options 对象
 
   // 处理文件和文件夹
   const files = [];
