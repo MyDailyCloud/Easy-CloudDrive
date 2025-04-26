@@ -11,8 +11,9 @@
         .status-running { color: #3b82f6; font-weight: bold; }
         .status-success { color: #10b981; font-weight: bold; }
         .status-failure { color: #ef4444; font-weight: bold; }
-        .log-entry { border-bottom: 1px solid #e5e7eb; padding: 0.5rem 0; }
-        .log-details { background-color: #f9fafb; padding: 0.5rem; margin-top: 0.25rem; border-radius: 0.25rem; font-size: 0.875rem; white-space: pre-wrap; word-break: break-all; }
+        .log-entry { border-bottom: 1px solid #e5e7eb; padding: 0.75rem 0; }
+        .log-details { background-color: #f9fafb; padding: 0.75rem; margin-top: 0.5rem; border-radius: 0.25rem; font-size: 0.875rem; white-space: pre-wrap; word-break: break-all; }
+        .curl-example code { font-size: 0.8rem; color: #374151; }
     </style>
 </head>
 <body class="bg-gray-100 p-8">
@@ -21,7 +22,7 @@
 
         <div class="mb-4">
             <label for="authToken" class="block text-sm font-medium text-gray-700 mb-1">授权令牌 (Bearer Token)</label>
-            <input type="text" id="authToken" v-model="authToken" placeholder="输入您的授权令牌" class="border p-2 rounded w-full">
+            <input type="text" id="authToken" v-model="authToken" placeholder="输入您的授权令牌 (可选)" class="border p-2 rounded w-full">
         </div>
 
         <button @click="runAllTests" :disabled="isRunning" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded mb-6 disabled:opacity-50">
@@ -32,14 +33,18 @@
             <h2 class="text-2xl font-semibold mb-4">测试结果</h2>
             <div v-if="!tests.length && !isRunning" class="text-gray-500">点击按钮开始测试。</div>
             <div v-for="(test, index) in tests" :key="index" class="log-entry">
-                <div class="flex justify-between items-center">
+                <div class="flex justify-between items-center mb-1">
                     <span class="font-medium">{{ test.name }}</span>
                     <span :class="['status-' + test.status]">{{ test.status.toUpperCase() }}</span>
+                </div>
+                <div v-if="test.curlExample" class="log-details curl-example">
+                    <strong class="text-xs text-gray-500 block mb-1">Curl 示例:</strong>
+                    <pre><code>{{ test.curlExample }}</code></pre>
                 </div>
                 <div v-if="test.message" class="log-details">
                     <strong>{{ test.status === 'failure' ? '错误' : '详情' }}:</strong> {{ test.message }}
                 </div>
-                 <div v-if="test.duration !== null" class="text-xs text-gray-500 mt-1">
+                 <div v-if="test.duration !== null" class="text-xs text-gray-500 mt-1 text-right">
                     耗时: {{ test.duration }} ms
                 </div>
             </div>
@@ -52,33 +57,116 @@
             data: {
                 tests: [],
                 isRunning: false,
-                authToken: ''
+                authToken: localStorage.getItem('apiAuthToken') || ''
+            },
+            watch: {
+                authToken(newToken) {
+                    localStorage.setItem('apiAuthToken', newToken);
+                }
             },
             methods: {
-                getAuthHeaders() {
-                    const headers = { 'Content-Type': 'application/json' };
+                getAuthHeaders(contentType = 'application/json', needsContent = true) {
+                    const headers = {};
+                    if (needsContent) {
+                        headers['Content-Type'] = contentType;
+                    }
                     if (this.authToken) {
                         headers['Authorization'] = `Bearer ${this.authToken}`;
                     }
                     return headers;
                 },
 
+                generateCurlExample(testName, params) {
+                    const baseUrl = window.location.origin;
+                    const placeholderUrl = '[YOUR_WORKER_URL]';
+                    let method = 'GET';
+                    let path = '';
+                    let queryParams = '';
+                    let headers = [];
+                    let data = null;
+
+                    if (this.authToken) {
+                        headers.push(`-H "Authorization: Bearer ${this.authToken}"`);
+                    }
+
+                    switch (testName) {
+                        case '创建测试文件夹':
+                            method = 'POST';
+                            path = '/createFolder';
+                            headers.push('-H "Content-Type: application/json"');
+                            data = JSON.stringify({ folderPath: params[0] });
+                            break;
+                        case '列出测试文件夹 (空)':
+                        case '列出测试文件夹 (包含文件)':
+                        case '列出测试文件夹 (验证重命名)':
+                        case '列出测试文件夹 (文件已删除)':
+                            method = 'GET';
+                            path = '/getfilelist';
+                            queryParams = `path=${encodeURIComponent(params[0])}&pageSize=10`;
+                            break;
+                        case '通过 URL 上传测试文件':
+                            method = 'POST';
+                            path = '/uploadbyurl';
+                            headers.push('-H "Content-Type: application/json"');
+                            data = JSON.stringify({ url: params[0], path: params[1], fileName: params[2] });
+                            break;
+                        case '搜索测试文件':
+                            method = 'GET';
+                            path = '/searchFiles';
+                            queryParams = `query=${encodeURIComponent(params[0])}&path=${encodeURIComponent(params[1])}`;
+                            break;
+                        case '重命名测试文件':
+                            method = 'POST';
+                            path = '/renameFile';
+                            headers.push('-H "Content-Type: application/json"');
+                            data = JSON.stringify({ oldFileName: params[0], newFileName: params[1] });
+                            break;
+                        case '预览重命名的文件':
+                            method = 'GET';
+                            path = '/previewFile';
+                            queryParams = `file=${encodeURIComponent(params[0])}`;
+                            break;
+                        case '分享重命名的文件':
+                            method = 'POST';
+                            path = '/shareFile';
+                            headers.push('-H "Content-Type: application/json"');
+                            data = JSON.stringify({ filePath: params[0], expirationDays: 1, requirePassword: false });
+                            break;
+                        case '删除重命名的文件':
+                        case '删除测试文件夹':
+                            method = 'DELETE';
+                            path = '/deleteFile';
+                            queryParams = `path=${encodeURIComponent(params[0])}`;
+                            break;
+                        default:
+                            return null;
+                    }
+
+                    const fullUrl = `${placeholderUrl}${path}${queryParams ? '?' + queryParams : ''}`;
+                    let curlCmd = `curl -X ${method} "${fullUrl}"`;
+                    if (headers.length > 0) {
+                        curlCmd += ` ${headers.join(' ')}`;
+                    }
+                    if (data) {
+                        const escapedData = data.replace(/'/g, '\\\'');
+                        curlCmd += ` -d '${escapedData}'`;
+                    }
+                    return curlCmd;
+                },
+
                 async runAllTests() {
                     if (this.isRunning) return;
                     this.isRunning = true;
-                    this.tests = []; // 清空上次结果
+                    this.tests = [];
 
-                    // --- 测试配置 ---
                     const testFolderName = `test-folder-${Date.now()}`;
                     const testFolderPath = `${testFolderName}/`;
                     const testFileName = `test-file-${Date.now()}.txt`;
                     const testFilePath = `${testFolderPath}${testFileName}`;
-                    const testFileContent = `Test content created at ${new Date().toISOString()}`;
-                    const testFileURL = 'https://raw.githubusercontent.com/axios/axios/main/README.md'; // 用一个小的公开文件测试URL上传
+                    const testFileURL = 'https://raw.githubusercontent.com/axios/axios/main/README.md';
                     const renamedFileName = `renamed-${testFileName}`;
                     const renamedFilePath = `${testFolderPath}${renamedFileName}`;
 
-                    // --- 测试定义 ---
                     const testSuite = [
                         { name: '创建测试文件夹', func: this.testCreateFolder, params: [testFolderPath] },
                         { name: '列出测试文件夹 (空)', func: this.testListFolder, params: [testFolderPath, true] },
@@ -92,25 +180,28 @@
                         { name: '删除重命名的文件', func: this.testDeleteFile, params: [renamedFilePath] },
                         { name: '列出测试文件夹 (文件已删除)', func: this.testListFolder, params: [testFolderPath, true] },
                         { name: '删除测试文件夹', func: this.testDeleteFile, params: [testFolderPath] },
-                        // { name: '列出根目录 (验证文件夹已删除)', func: this.testListRootAfterDelete, params: [testFolderPath] } // 可选，验证根目录
                     ];
 
-                    // --- 运行测试 ---
-                    for (const test of testSuite) {
-                        await this.runTest(test.name, test.func, ...test.params);
+                    for (const testDef of testSuite) {
+                        const curlExample = this.generateCurlExample(testDef.name, testDef.params);
+                        this.logTest(testDef.name, 'pending', null, null, curlExample);
+                        await this.runTest(testDef.name, testDef.func, ...testDef.params);
                     }
 
                     this.isRunning = false;
                 },
 
-                logTest(name, status, message = null, duration = null) {
-                    const existingTest = this.tests.find(t => t.name === name);
+                logTest(name, status, message = null, duration = null, curlExample = null) {
+                    let existingTest = this.tests.find(t => t.name === name);
                     if (existingTest) {
                         existingTest.status = status;
                         existingTest.message = message;
                         existingTest.duration = duration;
+                        if (curlExample && !existingTest.curlExample) {
+                            existingTest.curlExample = curlExample;
+                        }
                     } else {
-                        this.tests.push({ name, status, message, duration });
+                        this.tests.push({ name, status, message, duration, curlExample });
                     }
                 },
 
@@ -126,14 +217,9 @@
                         duration = (performance.now() - startTime).toFixed(2);
                         console.error(`Test "${testName}" failed:`, error);
                         this.logTest(testName, 'failure', error.message || '未知错误', duration);
-                        // 如果一个测试失败，可以选择停止后续测试
-                        // throw new Error(`Test "${testName}" failed, stopping suite.`);
                     }
-                     // 添加短暂延迟，避免请求过于频繁
                     await new Promise(resolve => setTimeout(resolve, 100));
                 },
-
-                // --- 单个 API 测试函数 ---
 
                 async testCreateFolder(folderPath) {
                     const response = await fetch('/createFolder', {
@@ -148,26 +234,15 @@
 
                 async testListFolder(folderPath, isEmpty, expectedFileName = null, unexpectedFileName = null) {
                     const response = await fetch(`/getfilelist?path=${encodeURIComponent(folderPath)}&pageSize=10`, {
-                        headers: this.getAuthHeaders()
+                        headers: this.getAuthHeaders(null, false)
                     });
                     if (!response.ok) throw new Error(`列出文件夹失败: ${response.status} ${await response.text()}`);
                     const data = await response.json();
                     const files = data.files || [];
-
-                    if (isEmpty && files.length !== 0) {
-                        throw new Error(`预期文件夹 '${folderPath}' 为空，但找到 ${files.length} 个项目: ${JSON.stringify(files.map(f => f.name))}`);
-                    }
-                    if (!isEmpty && files.length === 0) {
-                        throw new Error(`预期文件夹 '${folderPath}' 不为空，但列表为空`);
-                    }
-                    if (expectedFileName) {
-                        const found = files.some(f => f.relativeName === expectedFileName);
-                        if (!found) throw new Error(`预期在 '${folderPath}' 中找到文件 '${expectedFileName}'，但未找到`);
-                    }
-                    if (unexpectedFileName) {
-                         const found = files.some(f => f.relativeName === unexpectedFileName);
-                         if (found) throw new Error(`不应在 '${folderPath}' 中找到文件 '${unexpectedFileName}'，但它存在`);
-                    }
+                    if (isEmpty && files.length !== 0) throw new Error(`预期文件夹 '${folderPath}' 为空，但找到 ${files.length} 个项目`);
+                    if (!isEmpty && files.length === 0) throw new Error(`预期文件夹 '${folderPath}' 不为空`);
+                    if (expectedFileName && !files.some(f => f.relativeName === expectedFileName)) throw new Error(`预期找到文件 '${expectedFileName}'，但未找到`);
+                    if (unexpectedFileName && files.some(f => f.relativeName === unexpectedFileName)) throw new Error(`不应找到文件 '${unexpectedFileName}'，但它存在`);
                 },
 
                  async testUploadByUrl(url, path, fileName) {
@@ -183,13 +258,12 @@
 
                 async testSearchFile(query, path) {
                     const response = await fetch(`/searchFiles?query=${encodeURIComponent(query)}&path=${encodeURIComponent(path)}`, {
-                        headers: this.getAuthHeaders()
+                        headers: this.getAuthHeaders(null, false)
                     });
                      if (!response.ok) throw new Error(`搜索文件失败: ${response.status} ${await response.text()}`);
                     const data = await response.json();
                     if (!data.results || data.results.length === 0) throw new Error(`搜索 '${query}' 未找到结果`);
-                    const found = data.results.some(f => f.fileName === query && f.path === path);
-                    if (!found) throw new Error(`搜索结果中未找到精确匹配的文件 '${path}${query}'`);
+                    if (!data.results.some(f => f.fileName === query && f.path === path)) throw new Error(`搜索结果中未找到精确匹配的文件 '${path}${query}'`);
                 },
 
                  async testRenameFile(oldFileName, newFileName) {
@@ -205,14 +279,13 @@
 
                 async testPreviewFile(filePath) {
                     const response = await fetch(`/previewFile?file=${encodeURIComponent(filePath)}`, {
-                        headers: this.getAuthHeaders()
+                        headers: this.getAuthHeaders(null, false)
                     });
                     if (!response.ok) throw new Error(`预览文件失败: ${response.status} ${await response.text()}`);
                     const contentType = response.headers.get('Content-Type');
-                    if (!contentType || !contentType.startsWith('text/markdown')) { // 基于测试URL是README.md
-                        console.warn(`预览文件 '${filePath}' 的 Content-Type 为 '${contentType}'，可能与预期不符，但测试通过`);
+                    if (!contentType || !contentType.startsWith('text/markdown')) {
+                         console.warn(`预览文件 Content-Type 为 '${contentType}', 可能与测试文件预期不符`);
                     }
-                    // 可以添加更多对内容的检查，但对于自动化测试来说可能过于复杂
                 },
 
                  async testShareFile(filePath) {
@@ -223,31 +296,18 @@
                     });
                     if (!response.ok) throw new Error(`分享文件失败: ${response.status} ${await response.text()}`);
                     const data = await response.json();
-                    if (!data.shareUrl || typeof data.shareUrl !== 'string' || !data.shareUrl.startsWith('http')) {
-                         throw new Error(`分享文件响应异常，未返回有效的 shareUrl: ${JSON.stringify(data)}`);
-                    }
+                    if (!data.shareUrl || !data.shareUrl.startsWith('http')) throw new Error(`分享响应未返回有效 shareUrl`);
                 },
 
                 async testDeleteFile(filePath) {
                     const response = await fetch(`/deleteFile?path=${encodeURIComponent(filePath)}`, {
                         method: 'DELETE',
-                        headers: this.getAuthHeaders()
+                        headers: this.getAuthHeaders(null, false)
                     });
                      if (!response.ok) throw new Error(`删除 '${filePath}' 失败: ${response.status} ${await response.text()}`);
                     const data = await response.json();
                     if (!data.message || !data.message.includes('成功')) throw new Error(`删除响应异常: ${JSON.stringify(data)}`);
-                },
-
-                // 可选：检查根目录是否清除了测试文件夹
-                // async testListRootAfterDelete(deletedFolderPath) {
-                //     const response = await fetch(`/getfilelist?path=&pageSize=500`, {
-                //         headers: this.getAuthHeaders()
-                //     });
-                //     if (!response.ok) throw new Error(`列出根目录失败: ${response.status} ${await response.text()}`);
-                //     const data = await response.json();
-                //     const found = (data.files || []).some(f => f.name === deletedFolderPath);
-                //     if (found) throw new Error(`测试文件夹 '${deletedFolderPath}' 删除后仍然存在于根目录`);
-                // }
+                }
             }
         });
     </script>
