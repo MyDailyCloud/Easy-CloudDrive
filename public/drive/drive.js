@@ -414,39 +414,62 @@ document.addEventListener('DOMContentLoaded', () => {
         },
 
         async uploadFileDirectly(fileName) {
-            console.log("Uploading directly (PUT)...");
+            // Reverted to XMLHttpRequest POST to /upload for direct uploads and progress
+            console.log("Uploading directly (POST to /upload)...");
             this.uploadProgress = 1; // Indicate start
-            // Get headers *without* Content-Type initially
-            const headers = this.getAuthHeaders(null, false);
-            // Note: Fetch often adds Content-Type based on body type,
-            // but R2 might infer application/octet-stream for PUT body.
-            // If uploads fail, explicitly set 'application/octet-stream' here.
 
-            try {
-                const url = `/uploadfile?path=${encodeURIComponent(this.currentPath)}&fileName=${encodeURIComponent(fileName)}`;
-                const response = await fetch(url, {
-                    method: 'PUT',
-                    headers: headers,
-                    body: this.selectedFile
-                    // Consider using XMLHttpRequest for better progress tracking on PUT
-                });
+            const formData = new FormData();
+            formData.append('file', this.selectedFile);
+            formData.append('path', this.currentPath); // Server needs path prefix
+            formData.append('fileName', fileName); // Send relative file name
 
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(`Direct upload failed: ${response.status} ${errorText}`);
-                }
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', '/upload', true); // Use POST to /upload endpoint
 
-                console.log("Direct upload successful.");
-                this.uploadProgress = 100;
-                alert(this.$t('drive.messages.uploadSuccess'));
-                this.resetUploadState();
-                this.fetchFiles(this.currentPath);
-
-            } catch (error) {
-                console.error('Direct upload error:', error);
-                alert(`${this.$t('drive.messages.uploadError')}: ${error.message}`);
-                this.uploadProgress = 0;
+            // Apply Auth Header
+            const headers = this.getAuthHeaders(null, false); // No Content-Type for FormData
+            if (headers['Authorization']) {
+                xhr.setRequestHeader('Authorization', headers['Authorization']);
             }
+
+            xhr.upload.onprogress = (event) => {
+                if (event.lengthComputable) {
+                    this.uploadProgress = Math.round((event.loaded / event.total) * 100);
+                }
+            };
+
+            xhr.onload = async () => {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    console.log("Direct upload successful:", xhr.responseText);
+                    // Response might contain file details, parse if needed
+                    try {
+                        // const responseData = JSON.parse(xhr.responseText);
+                        // console.log("Upload response data:", responseData);
+                    } catch (e) {
+                        console.warn("Could not parse upload response JSON:", xhr.responseText);
+                    }
+                    alert(this.$t('drive.messages.uploadSuccess'));
+                    this.resetUploadState();
+                    await this.fetchFiles(this.currentPath); // Refresh list
+                } else {
+                    let errorMsg = xhr.responseText;
+                    try {
+                        // Try parsing backend error message
+                        errorMsg = JSON.parse(xhr.responseText).message || xhr.responseText;
+                    } catch (e) {}
+                     console.error(`Direct upload failed: ${xhr.status} ${errorMsg}`);
+                     alert(`${this.$t('drive.messages.uploadError')} (${xhr.status}): ${errorMsg}`);
+                     this.uploadProgress = 0; // Reset progress on error
+                }
+            };
+
+            xhr.onerror = () => {
+                 console.error('Direct upload network error.');
+                 alert(this.$t('drive.messages.networkError'));
+                 this.uploadProgress = 0; // Reset progress on error
+            };
+
+            xhr.send(formData);
         },
 
         async uploadFileWithMPU(finalFileName, fileSize) {
