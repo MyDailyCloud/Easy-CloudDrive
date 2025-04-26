@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Easy-CloudDrive API 文档</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="/i8n.js"></script>
+    <style>
+        body { font-family: sans-serif; }
+        .api-endpoint { background-color: #f3f4f6; padding: 0.5rem 1rem; border-radius: 0.25rem; font-family: monospace; margin-bottom: 0.5rem; display: inline-block; }
+        .method-get { background-color: #dbeafe; color: #1e40af; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-weight: bold; margin-right: 0.5rem; }
+        .method-post { background-color: #d1fae5; color: #065f46; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-weight: bold; margin-right: 0.5rem; }
+        .method-put { background-color: #fef3c7; color: #92400e; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-weight: bold; margin-right: 0.5rem; }
+        .method-delete { background-color: #fee2e2; color: #991b1b; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-weight: bold; margin-right: 0.5rem; }
+        h3 { border-bottom: 1px solid #e5e7eb; padding-bottom: 0.5rem; margin-top: 1.5rem; }
+        table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+        th, td { border: 1px solid #e5e7eb; padding: 0.5rem; text-align: left; }
+        th { background-color: #f9fafb; }
+        code { background-color: #f3f4f6; padding: 0.2rem 0.4rem; border-radius: 0.25rem; font-family: monospace; }
+    </style>
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="container mx-auto bg-white p-8 rounded-lg shadow-md">
+        <h1 class="text-3xl font-bold mb-6 text-indigo-600">Easy-CloudDrive API 文档</h1>
+
+        <p class="mb-6">本文档描述了 Easy-CloudDrive 后端提供的 API 端点及其用法。</p>
+
+        <!-- 获取文件列表 -->
+        <section id="getfilelist">
+            <h2 class="text-2xl font-semibold mb-2">获取文件列表</h2>
+            <div class="api-endpoint"><span class="method-get">GET</span> /getfilelist</div>
+            <p class="mb-2">获取指定路径下的文件和文件夹列表，支持分页。</p>
+            <h3 class="text-xl font-medium mb-2">查询参数</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>参数</th>
+                        <th>类型</th>
+                        <th>必需</th>
+                        <th>描述</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>path</code></td>
+                        <td>String</td>
+                        <td>否</td>
+                        <td>要获取列表的路径。默认为根目录 <code>''</code>。路径末尾应包含 <code>/</code> 以表示文件夹。</td>
+                    </tr>
+                    <tr>
+                        <td><code>pageSize</code></td>
+                        <td>Number</td>
+                        <td>否</td>
+                        <td>每页返回的文件/文件夹数量。默认为 50。</td>
+                    </tr>
+                    <tr>
+                        <td><code>cursor</code></td>
+                        <td>String</td>
+                        <td>否</td>
+                        <td>用于分页的游标，从上一次请求的响应中获取。</td>
+                    </tr>
+                </tbody>
+            </table>
+            <h3 class="text-xl font-medium mt-4 mb-2">成功响应 (200 OK)</h3>
+            <pre class="bg-gray-50 p-4 rounded overflow-x-auto"><code>{
+  "files": [
+    {
+      "name": "folder/subfolder/", // 完整路径，文件夹以 / 结尾
+      "relativeName": "subfolder", // 相对于当前路径的名称
+      "type": "folder",
+      "uploaded": "2023-10-27T10:00:00.000Z" // ISO 8601 格式
+    },
+    {
+      "name": "folder/image.jpg",
+      "relativeName": "image.jpg",
+      "type": "file",
+      "size": 102400, // 文件大小 (Bytes)
+      "uploaded": "2023-10-27T10:05:00.000Z",
+      "contentType": "image/jpeg" // 文件MIME类型
+    }
+    // ...更多文件或文件夹
+  ],
+  "cursor": "opaqueCursorString", // 下一页的游标，如果为 null 或不存在则表示没有更多文件
+  "hasMore": true // 是否还有更多文件
+}</code></pre>
+            <h3 class="text-xl font-medium mt-4 mb-2">错误响应</h3>
+            <ul>
+                <li><code>400 Bad Request</code>: 参数无效。</li>
+                <li><code>500 Internal Server Error</code>: 服务器内部错误。</li>
+            </ul>
+        </section>
+
+        <!-- 文件上传 -->
+        <section id="uploadfile" class="mt-8">
+            <h2 class="text-2xl font-semibold mb-2">文件上传</h2>
+            <p class="mb-2">支持直接上传和小文件上传，以及大于 10MB 文件的分片上传。</p>
+
+            <h3 class="text-xl font-medium mb-2">1. 创建分片上传 (MPU - MultiPart Upload)</h3>
+            <div class="api-endpoint"><span class="method-post">POST</span> /uploadfile?action=mpu-create</div>
+            <p class="mb-2">开始一个分片上传任务。</p>
+            <h4 class="text-lg font-medium mt-4 mb-2">请求体 (JSON)</h4>
+            <table>
+                <thead>
+                    <tr>
+                        <th>参数</th>
+                        <th>类型</th>
+                        <th>必需</th>
+                        <th>描述</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>fileName</code></td>
+                        <td>String</td>
+                        <td>是</td>
+                        <td>要保存的文件名。</td>
+                    </tr>
+                    <tr>
+                        <td><code>path</code></td>
+                        <td>String</td>
+                        <td>否</td>
+                        <td>文件保存的路径 (文件夹)。默认为根目录 <code>''</code>。</td>
+                    </tr>
+                </tbody>
+            </table>
+            <h4 class="text-lg font-medium mt-4 mb-2">成功响应 (200 OK)</h4>
+            <pre class="bg-gray-50 p-4 rounded overflow-x-auto"><code>{
+  "uploadId": "uniqueUploadIdString" // 分片上传的唯一标识符
+}</code></pre>
+
+            <h3 class="text-xl font-medium mt-6 mb-2">2. 上传分片</h3>
+            <div class="api-endpoint"><span class="method-put">PUT</span> /uploadfile?action=mpu-uploadpart&uploadId={uploadId}&partNumber={partNumber}&path={path}&fileName={fileName}</div>
+            <p class="mb-2">上传文件的单个分片。</p>
+            <h4 class="text-lg font-medium mt-4 mb-2">查询参数</h4>
+            <table>
+                <thead>
+                    <tr>
+                        <th>参数</th>
+                        <th>类型</th>
+                        <th>必需</th>
+                        <th>描述</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>uploadId</code></td>
+                        <td>String</td>
+                        <td>是</td>
+                        <td>从 <code>mpu-create</code> 获取的 Upload ID。</td>
+                    </tr>
+                    <tr>
+                        <td><code>partNumber</code></td>
+                        <td>Number</td>
+                        <td>是</td>
+                        <td>分片编号 (从 1 开始)。</td>
+                    </tr>
+                     <tr>
+                        <td><code>path</code></td>
+                        <td>String</td>
+                        <td>是</td>
+                        <td>文件保存的路径 (文件夹)。URL 编码。</td>
+                    </tr>
+                     <tr>
+                        <td><code>fileName</code></td>
+                        <td>String</td>
+                        <td>是</td>
+                        <td>要保存的文件名。URL 编码。</td>
+                    </tr>
+                </tbody>
+            </table>
+             <h4 class="text-lg font-medium mt-4 mb-2">请求体</h4>
+             <p>文件的二进制数据块。</p>
+            <h4 class="text-lg font-medium mt-4 mb-2">成功响应 (200 OK)</h4>
+             <pre class="bg-gray-50 p-4 rounded overflow-x-auto"><code>{
+  "partNumber": 1,
+  "etag": ""serverGeneratedETag"" // 该分片的 ETag
+}</code></pre>
+
+            <h3 class="text-xl font-medium mt-6 mb-2">3. 完成分片上传</h3>
+            <div class="api-endpoint"><span class="method-post">POST</span> /uploadfile?action=mpu-complete&uploadId={uploadId}&path={path}&fileName={fileName}</div>
+            <p class="mb-2">合并所有上传的分片，完成文件上传。</p>
+             <h4 class="text-lg font-medium mt-4 mb-2">查询参数</h4>
+            <table>
+                <thead>
+                    <tr>
+                        <th>参数</th>
+                        <th>类型</th>
+                        <th>必需</th>
+                        <th>描述</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>uploadId</code></td>
+                        <td>String</td>
+                        <td>是</td>
+                        <td>从 <code>mpu-create</code> 获取的 Upload ID。</td>
+                    </tr>
+                     <tr>
+                        <td><code>path</code></td>
+                        <td>String</td>
+                        <td>是</td>
+                        <td>文件保存的路径 (文件夹)。URL 编码。</td>
+                    </tr>
+                     <tr>
+                        <td><code>fileName</code></td>
+                        <td>String</td>
+                        <td>是</td>
+                        <td>要保存的文件名。URL 编码。</td>
+                    </tr>
+                </tbody>
+            </table>
+            <h4 class="text-lg font-medium mt-4 mb-2">请求体 (JSON)</h4>
+            <pre class="bg-gray-50 p-4 rounded overflow-x-auto"><code>{
+  "parts": [
+    { "partNumber": 1, "etag": ""etagForPart1"" },
+    { "partNumber": 2, "etag": ""etagForPart2"" }
+    // ...所有分片的 partNumber 和 etag
+  ]
+}</code></pre>
+            <h4 class="text-lg font-medium mt-4 mb-2">成功响应 (200 OK)</h4>
+             <pre class="bg-gray-50 p-4 rounded overflow-x-auto"><code>{
+  "message": "文件上传成功"
+}</code></pre>
+
+             <h3 class="text-xl font-medium mt-6 mb-2">4. （可选）中止分片上传</h3>
+            <div class="api-endpoint"><span class="method-delete">DELETE</span> /uploadfile?action=mpu-abort&uploadId={uploadId}&path={path}&fileName={fileName}</div>
+            <p class="mb-2">取消一个未完成的分片上传任务并删除已上传的分片。</p>
+            <h4 class="text-lg font-medium mt-4 mb-2">查询参数</h4>
+            <table>
+                <thead>
+                    <tr>
+                        <th>参数</th>
+                        <th>类型</th>
+                        <th>必需</th>
+                        <th>描述</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>uploadId</code></td>
+                        <td>String</td>
+                        <td>是</td>
+                        <td>从 <code>mpu-create</code> 获取的 Upload ID。</td>
+                    </tr>
+                     <tr>
+                        <td><code>path</code></td>
+                        <td>String</td>
+                        <td>是</td>
+                        <td>文件保存的路径 (文件夹)。URL 编码。</td>
+                    </tr>
+                     <tr>
+                        <td><code>fileName</code></td>
+                        <td>String</td>
+                        <td>是</td>
+                        <td>要保存的文件名。URL 编码。</td>
+                    </tr>
+                </tbody>
+            </table>
+             <h4 class="text-lg font-medium mt-4 mb-2">成功响应 (200 OK)</h4>
+             <pre class="bg-gray-50 p-4 rounded overflow-x-auto"><code>{
+  "message": "分片上传已中止"
+}</code></pre>
+
+             <h3 class="text-xl font-medium mt-4 mb-2">错误响应 (所有上传步骤)</h3>
+            <ul>
+                <li><code>400 Bad Request</code>: 参数无效或请求体格式错误。</li>
+                <li><code>500 Internal Server Error</code>: 服务器内部错误。</li>
+            </ul>
+        </section>
+
+        <!-- URL 上传 -->
+        <section id="uploadbyurl" class="mt-8">
+            <h2 class="text-2xl font-semibold mb-2">通过 URL 上传</h2>
+            <div class="api-endpoint"><span class="method-post">POST</span> /uploadbyurl</div>
+            <p class="mb-2">从指定的 URL 下载文件并保存到 R2。</p>
+            <h3 class="text-xl font-medium mb-2">请求体 (JSON)</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>参数</th>
+                        <th>类型</th>
+                        <th>必需</th>
+                        <th>描述</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>url</code></td>
+                        <td>String</td>
+                        <td>是</td>
+                        <td>要下载的文件的 URL。</td>
+                    </tr>
+                    <tr>
+                        <td><code>path</code></td>
+                        <td>String</td>
+                        <td>否</td>
+                        <td>文件保存的路径 (文件夹)。默认为根目录 <code>''</code>。</td>
+                    </tr>
+                    <tr>
+                        <td><code>fileName</code></td>
+                        <td>String</td>
+                        <td>是</td>
+                        <td>保存的文件名。</td>
+                    </tr>
+                </tbody>
+            </table>
+            <h3 class="text-xl font-medium mt-4 mb-2">成功响应 (200 OK)</h3>
+            <pre class="bg-gray-50 p-4 rounded overflow-x-auto"><code>{
+  "message": "通过URL上传成功"
+}</code></pre>
+            <h3 class="text-xl font-medium mt-4 mb-2">错误响应</h3>
+            <ul>
+                <li><code>400 Bad Request</code>: 参数无效或 URL 无法访问。</li>
+                <li><code>500 Internal Server Error</code>: 服务器内部错误。</li>
+            </ul>
+        </section>
+
+        <!-- 删除文件/文件夹 -->
+        <section id="deleteFile" class="mt-8">
+            <h2 class="text-2xl font-semibold mb-2">删除文件/文件夹</h2>
+            <div class="api-endpoint"><span class="method-delete">DELETE</span> /deleteFile?path={filePath}</div>
+            <p class="mb-2">删除指定路径的文件或文件夹（及其内容）。</p>
+            <h3 class="text-xl font-medium mb-2">查询参数</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>参数</th>
+                        <th>类型</th>
+                        <th>必需</th>
+                        <th>描述</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>path</code></td>
+                        <td>String</td>
+                        <td>是</td>
+                        <td>要删除的文件或文件夹的完整路径 (URL 编码)。文件夹路径需以 <code>/</code> 结尾。</td>
+                    </tr>
+                </tbody>
+            </table>
+            <h3 class="text-xl font-medium mt-4 mb-2">成功响应 (200 OK)</h3>
+            <pre class="bg-gray-50 p-4 rounded overflow-x-auto"><code>{
+  "message": "删除成功"
+}</code></pre>
+            <h3 class="text-xl font-medium mt-4 mb-2">错误响应</h3>
+            <ul>
+                <li><code>400 Bad Request</code>: 路径参数缺失。</li>
+                <li><code>404 Not Found</code>: 文件或文件夹不存在。</li>
+                <li><code>500 Internal Server Error</code>: 服务器内部错误。</li>
+            </ul>
+        </section>
+
+        <!-- 重命名文件/文件夹 -->
+        <section id="renameFile" class="mt-8">
+            <h2 class="text-2xl font-semibold mb-2">重命名文件/文件夹</h2>
+            <div class="api-endpoint"><span class="method-post">POST</span> /renameFile</div>
+            <p class="mb-2">重命名指定路径的文件或文件夹。</p>
+            <h3 class="text-xl font-medium mb-2">请求体 (JSON)</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>参数</th>
+                        <th>类型</th>
+                        <th>必需</th>
+                        <th>描述</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>oldFileName</code></td>
+                        <td>String</td>
+                        <td>是</td>
+                        <td>原始文件或文件夹的完整路径。文件夹路径需以 <code>/</code> 结尾。</td>
+                    </tr>
+                    <tr>
+                        <td><code>newFileName</code></td>
+                        <td>String</td>
+                        <td>是</td>
+                        <td>新的文件或文件夹的完整路径。文件夹路径需以 <code>/</code> 结尾。</td>
+                    </tr>
+                </tbody>
+            </table>
+            <h3 class="text-xl font-medium mt-4 mb-2">成功响应 (200 OK)</h3>
+            <pre class="bg-gray-50 p-4 rounded overflow-x-auto"><code>{
+  "message": "重命名成功"
+}</code></pre>
+            <h3 class="text-xl font-medium mt-4 mb-2">错误响应</h3>
+            <ul>
+                <li><code>400 Bad Request</code>: 参数无效或新名称已存在。</li>
+                <li><code>404 Not Found</code>: 原始文件或文件夹不存在。</li>
+                <li><code>500 Internal Server Error</code>: 服务器内部错误。</li>
+            </ul>
+        </section>
+
+        <!-- 创建文件夹 -->
+        <section id="createFolder" class="mt-8">
+            <h2 class="text-2xl font-semibold mb-2">创建文件夹</h2>
+            <div class="api-endpoint"><span class="method-post">POST</span> /createFolder</div>
+            <p class="mb-2">在指定路径下创建新的文件夹。</p>
+            <h3 class="text-xl font-medium mb-2">请求体 (JSON)</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>参数</th>
+                        <th>类型</th>
+                        <th>必需</th>
+                        <th>描述</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>folderPath</code></td>
+                        <td>String</td>
+                        <td>是</td>
+                        <td>要创建的文件夹的完整路径，必须以 <code>/</code> 结尾。例如 <code>path/to/new_folder/</code>。</td>
+                    </tr>
+                </tbody>
+            </table>
+            <h3 class="text-xl font-medium mt-4 mb-2">成功响应 (200 OK)</h3>
+            <pre class="bg-gray-50 p-4 rounded overflow-x-auto"><code>{
+  "message": "文件夹创建成功"
+}</code></pre>
+            <h3 class="text-xl font-medium mt-4 mb-2">错误响应</h3>
+            <ul>
+                <li><code>400 Bad Request</code>: 参数无效或文件夹已存在。</li>
+                <li><code>500 Internal Server Error</code>: 服务器内部错误。</li>
+            </ul>
+        </section>
+
+        <!-- 搜索文件 -->
+        <section id="searchFiles" class="mt-8">
+            <h2 class="text-2xl font-semibold mb-2">搜索文件</h2>
+            <div class="api-endpoint"><span class="method-get">GET</span> /searchFiles</div>
+            <p class="mb-2">在指定路径（及其子目录）下搜索文件名包含特定查询字符串的文件。</p>
+             <h3 class="text-xl font-medium mb-2">查询参数</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>参数</th>
+                        <th>类型</th>
+                        <th>必需</th>
+                        <th>描述</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>query</code></td>
+                        <td>String</td>
+                        <td>是</td>
+                        <td>搜索查询字符串。</td>
+                    </tr>
+                    <tr>
+                        <td><code>path</code></td>
+                        <td>String</td>
+                        <td>否</td>
+                        <td>搜索的起始路径。默认为根目录 <code>''</code>。</td>
+                    </tr>
+                </tbody>
+            </table>
+            <h3 class="text-xl font-medium mt-4 mb-2">成功响应 (200 OK)</h3>
+            <pre class="bg-gray-50 p-4 rounded overflow-x-auto"><code>{
+  "results": [
+    {
+      "name": "path/to/matching_file.txt", // 完整路径
+      "fileName": "matching_file.txt", // 文件名
+      "path": "path/to/", // 文件所在路径
+      "size": 5120,
+      "uploadTime": "2023-10-26T12:00:00.000Z",
+      "contentType": "text/plain"
+    }
+    // ...更多匹配的文件
+  ]
+}</code></pre>
+             <h3 class="text-xl font-medium mt-4 mb-2">错误响应</h3>
+            <ul>
+                <li><code>400 Bad Request</code>: 查询参数缺失。</li>
+                <li><code>500 Internal Server Error</code>: 服务器内部错误。</li>
+            </ul>
+        </section>
+
+        <!-- 文件预览 -->
+        <section id="previewFile" class="mt-8">
+            <h2 class="text-2xl font-semibold mb-2">文件预览</h2>
+            <div class="api-endpoint"><span class="method-get">GET</span> /previewFile?file={filePath}</div>
+            <p class="mb-2">获取指定文件的内容用于预览。支持图片、PDF、文本、视频和音频。对于大文件，可能只返回部分内容。</p>
+            <h3 class="text-xl font-medium mb-2">查询参数</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>参数</th>
+                        <th>类型</th>
+                        <th>必需</th>
+                        <th>描述</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>file</code></td>
+                        <td>String</td>
+                        <td>是</td>
+                        <td>要预览的文件的完整路径 (URL 编码)。</td>
+                    </tr>
+                </tbody>
+            </table>
+            <h3 class="text-xl font-medium mt-4 mb-2">成功响应 (200 OK)</h3>
+            <p>响应体是文件的原始二进制数据或文本内容。</p>
+            <h4 class="text-lg font-medium mt-4 mb-2">响应头</h4>
+             <table>
+                <thead>
+                    <tr>
+                        <th>头</th>
+                        <th>描述</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>Content-Type</code></td>
+                        <td>文件的 MIME 类型。</td>
+                    </tr>
+                    <tr>
+                        <td><code>X-Partial-Content</code></td>
+                        <td>如果值为 <code>'true'</code>，表示返回的是部分内容 (通常针对大文件)。</td>
+                    </tr>
+                </tbody>
+            </table>
+            <h3 class="text-xl font-medium mt-4 mb-2">错误响应</h3>
+            <ul>
+                <li><code>400 Bad Request</code>: 文件参数缺失。</li>
+                <li><code>404 Not Found</code>: 文件不存在。</li>
+                <li><code>415 Unsupported Media Type</code>: 文件类型不支持预览。</li>
+                <li><code>500 Internal Server Error</code>: 服务器内部错误。</li>
+            </ul>
+        </section>
+
+        <!-- 文件分享 -->
+        <section id="shareFile" class="mt-8">
+            <h2 class="text-2xl font-semibold mb-2">文件分享</h2>
+            <div class="api-endpoint"><span class="method-post">POST</span> /shareFile</div>
+            <p class="mb-2">为指定文件创建带签名的分享链接。</p>
+             <h3 class="text-xl font-medium mb-2">请求体 (JSON)</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>参数</th>
+                        <th>类型</th>
+                        <th>必需</th>
+                        <th>描述</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>filePath</code></td>
+                        <td>String</td>
+                        <td>是</td>
+                        <td>要分享的文件的完整路径。</td>
+                    </tr>
+                    <tr>
+                        <td><code>expirationDays</code></td>
+                        <td>Number</td>
+                        <td>是</td>
+                        <td>链接有效天数 (例如 1, 7, 30, 90)。</td>
+                    </tr>
+                     <tr>
+                        <td><code>requirePassword</code></td>
+                        <td>Boolean</td>
+                        <td>否</td>
+                        <td>是否需要密码访问。默认为 <code>false</code>。</td>
+                    </tr>
+                     <tr>
+                        <td><code>password</code></td>
+                        <td>String</td>
+                        <td>条件性</td>
+                        <td>如果 <code>requirePassword</code> 为 <code>true</code>，则此项为必需。</td>
+                    </tr>
+                </tbody>
+            </table>
+            <h3 class="text-xl font-medium mt-4 mb-2">成功响应 (200 OK)</h3>
+            <pre class="bg-gray-50 p-4 rounded overflow-x-auto"><code>{
+  "shareUrl": "https://your-worker-url/download?token=..." // 生成的分享链接
+}</code></pre>
+             <h3 class="text-xl font-medium mt-4 mb-2">错误响应</h3>
+            <ul>
+                <li><code>400 Bad Request</code>: 参数无效。</li>
+                 <li><code>404 Not Found</code>: 文件不存在。</li>
+                <li><code>500 Internal Server Error</code>: 服务器内部错误。</li>
+            </ul>
+             <p class="mt-4"><strong>注意:</strong> 分享链接的下载端点 (例如 <code>/download</code>) 需要单独实现，用于验证 token 并提供文件下载。</p>
+        </section>
+
+    </div>
+    <script>
+        // 简单的语言切换逻辑 (如果需要)
+        // document.addEventListener('DOMContentLoaded', () => {
+        //     initializeI18n(); // 假设 i8n.js 提供了这个函数
+        // });
+    </script>
+</body>
+</html> 
