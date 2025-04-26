@@ -1,7 +1,11 @@
 export async function onRequest(context) {
   const url = new URL(context.request.url);
   const action = url.searchParams.get("action");
-  const key = url.pathname.slice(1);
+  const path = url.searchParams.get("path") || "";
+  const fileName = url.searchParams.get("fileName") || "";
+  const fullKey = path ? 
+    (path.endsWith('/') ? path + fileName : path + '/' + fileName) : 
+    fileName;
   const bucket = context.env.fastdriver2;
 
   // 验证授权
@@ -14,7 +18,15 @@ export async function onRequest(context) {
     case "POST":
       switch (action) {
         case "mpu-create": {
-          const multipartUpload = await bucket.createMultipartUpload(key);
+          const body = await context.request.json();
+          const fileNameFromBody = body.fileName || "";
+          const pathFromBody = body.path || "";
+          
+          const keyToUse = pathFromBody ? 
+            (pathFromBody.endsWith('/') ? pathFromBody + fileNameFromBody : pathFromBody + '/' + fileNameFromBody) : 
+            fileNameFromBody;
+            
+          const multipartUpload = await bucket.createMultipartUpload(keyToUse || fullKey);
           return new Response(JSON.stringify({
             key: multipartUpload.key,
             uploadId: multipartUpload.uploadId,
@@ -25,7 +37,7 @@ export async function onRequest(context) {
           if (!uploadId) {
             return new Response("缺少 uploadId", { status: 400 });
           }
-          const multipartUpload = bucket.resumeMultipartUpload(key, uploadId);
+          const multipartUpload = bucket.resumeMultipartUpload(fullKey, uploadId);
           const completeBody = await context.request.json();
           if (!completeBody || !completeBody.parts) {
             return new Response("请求体不完整", { status: 400 });
@@ -53,7 +65,7 @@ export async function onRequest(context) {
           return new Response("缺少请求体", { status: 400 });
         }
         const partNumber = parseInt(partNumberString);
-        const multipartUpload = bucket.resumeMultipartUpload(key, uploadId);
+        const multipartUpload = bucket.resumeMultipartUpload(fullKey, uploadId);
         try {
           const uploadedPart = await multipartUpload.uploadPart(partNumber, context.request.body);
           return new Response(JSON.stringify(uploadedPart));
@@ -68,7 +80,7 @@ export async function onRequest(context) {
         if (!uploadId) {
           return new Response("缺少 uploadId", { status: 400 });
         }
-        const multipartUpload = bucket.resumeMultipartUpload(key, uploadId);
+        const multipartUpload = bucket.resumeMultipartUpload(fullKey, uploadId);
         try {
           await multipartUpload.abort();
           return new Response(null, { status: 204 });

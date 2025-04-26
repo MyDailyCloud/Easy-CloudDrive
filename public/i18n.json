@@ -88,6 +88,7 @@
     "drive": {
       "title": "文件列表",
       "subtitle": "查看您的所有文件",
+      "rootDirectory": "根目录",
       "passwordSection": {
         "title": "输入密码",
         "placeholder": "请输入密码"
@@ -105,6 +106,14 @@
         },
         "progress": "上传进度: {{progress}}%"
       },
+      "search": {
+        "placeholder": "搜索文件...",
+        "button": "搜索",
+        "clearButton": "清除",
+        "results": "搜索 \"{{query}}\" 的结果: {{count}} 个匹配项",
+        "noResults": "没有找到匹配的文件",
+        "backToAll": "返回全部文件"
+      },
       "fileList": {
         "headers": {
           "fileName": "文件名",
@@ -113,8 +122,51 @@
           "actions": "操作"
         },
         "actions": {
-          "showQR": "显示二维码",
-          "download": "下载"
+          "preview": "预览",
+          "share": "分享",
+          "showQR": "二维码",
+          "rename": "重命名",
+          "download": "下载",
+          "delete": "删除"
+        },
+        "emptyFolder": "此文件夹为空",
+        "loadMore": "加载更多"
+      },
+      "folder": {
+        "createButton": "新建文件夹",
+        "createModalTitle": "创建新文件夹",
+        "namePlaceholder": "输入文件夹名称",
+        "createAction": "创建",
+        "cancelAction": "取消"
+      },
+      "rename": {
+        "modalTitle": "重命名",
+        "newNamePlaceholder": "输入新名称",
+        "renameAction": "重命名",
+        "cancelAction": "取消"
+      },
+      "share": {
+        "modalTitle": "分享文件",
+        "validityPeriod": "有效期",
+        "validity": {
+          "1day": "1天",
+          "7days": "7天",
+          "30days": "30天",
+          "90days": "90天"
+        },
+        "requirePassword": "需要密码",
+        "passwordPlaceholder": "设置访问密码",
+        "shareAction": "分享",
+        "cancelAction": "取消",
+        "successTitle": "分享链接已创建成功！",
+        "copyAction": "复制链接",
+        "closeAction": "关闭"
+      },
+      "preview": {
+        "partialContent": "文件较大，仅显示部分内容",
+        "notSupported": {
+          "video": "您的浏览器不支持视频预览",
+          "audio": "您的浏览器不支持音频预览"
         }
       },
       "qrCode": {
@@ -125,9 +177,23 @@
         "uploadSuccess": "文件上传成功",
         "uploadError": "文件上传失败，请稍后重试",
         "enterUrl": "请输入文件URL",
+        "enterFileName": "请输入文件名",
+        "enterFolderName": "请输入文件夹名称",
         "urlUploadSuccess": "通过URL上传文件成功",
         "urlUploadError": "通过URL上传文件失败，请稍后重试",
-        "fetchError": "获取文件列表失败，请检查密码是否正确"
+        "fetchError": "获取文件列表失败，请检查密码是否正确",
+        "folderCreateSuccess": "文件夹创建成功",
+        "folderCreateError": "文件夹创建失败",
+        "renameSuccess": "重命名成功",
+        "renameError": "重命名失败",
+        "deleteSuccess": "删除成功",
+        "deleteError": "删除失败",
+        "confirmDelete": "确定要删除此文件吗？",
+        "confirmDeleteFolder": "确定要删除此文件夹及其所有内容吗？",
+        "shareError": "分享文件失败",
+        "previewError": "文件预览失败",
+        "previewNotSupported": "此文件类型不支持预览",
+        "urlCopied": "链接已复制到剪贴板"
       }
     }
   },
@@ -220,6 +286,7 @@
     "drive": {
       "title": "File List",
       "subtitle": "View all your files",
+      "rootDirectory": "Root Directory",
       "passwordSection": {
         "title": "Enter Password",
         "placeholder": "Please enter password"
@@ -237,6 +304,14 @@
         },
         "progress": "Upload progress: {{progress}}%"
       },
+      "search": {
+        "placeholder": "Search files...",
+        "button": "Search",
+        "clearButton": "Clear",
+        "results": "Search results for \"{{query}}\": {{count}} matches",
+        "noResults": "No matching files found",
+        "backToAll": "Back to all files"
+      },
       "fileList": {
         "headers": {
           "fileName": "File Name",
@@ -245,8 +320,51 @@
           "actions": "Actions"
         },
         "actions": {
-          "showQR": "Show QR Code",
-          "download": "Download"
+          "preview": "Preview",
+          "share": "Share",
+          "showQR": "QR Code",
+          "rename": "Rename",
+          "download": "Download",
+          "delete": "Delete"
+        },
+        "emptyFolder": "This folder is empty",
+        "loadMore": "Load More"
+      },
+      "folder": {
+        "createButton": "New Folder",
+        "createModalTitle": "Create New Folder",
+        "namePlaceholder": "Enter folder name",
+        "createAction": "Create",
+        "cancelAction": "Cancel"
+      },
+      "rename": {
+        "modalTitle": "Rename",
+        "newNamePlaceholder": "Enter new name",
+        "renameAction": "Rename",
+        "cancelAction": "Cancel"
+      },
+      "share": {
+        "modalTitle": "Share File",
+        "validityPeriod": "Validity Period",
+        "validity": {
+          "1day": "1 Day",
+          "7days": "7 Days",
+          "30days": "30 Days",
+          "90days": "90 Days"
+        },
+        "requirePassword": "Require Password",
+        "passwordPlaceholder": "Set access password",
+        "shareAction": "Share",
+        "cancelAction": "Cancel",
+        "successTitle": "Share link created successfully!",
+        "copyAction": "Copy Link",
+        "closeAction": "Close"
+      },
+      "preview": {
+        "partialContent": "File is large, only showing partial content",
+        "notSupported": {
+          "video": "Your browser does not support video preview",
+          "audio": "Your browser does not support audio preview"
         }
       },
       "qrCode": {
@@ -255,11 +373,25 @@
       "messages": {
         "selectFile": "Please select a file first",
         "uploadSuccess": "File uploaded successfully",
-        "uploadError": "File upload failed, please try again later",
-        "enterUrl": "Please enter file URL",
+        "uploadError": "File upload failed, please try again",
+        "enterUrl": "Please enter a file URL",
+        "enterFileName": "Please enter a file name",
+        "enterFolderName": "Please enter a folder name",
         "urlUploadSuccess": "File uploaded via URL successfully",
-        "urlUploadError": "File upload via URL failed, please try again later",
-        "fetchError": "Failed to fetch file list, please check if the password is correct"
+        "urlUploadError": "Failed to upload file via URL, please try again",
+        "fetchError": "Failed to fetch file list, please check your password",
+        "folderCreateSuccess": "Folder created successfully",
+        "folderCreateError": "Failed to create folder",
+        "renameSuccess": "Renamed successfully",
+        "renameError": "Failed to rename",
+        "deleteSuccess": "Deleted successfully",
+        "deleteError": "Failed to delete",
+        "confirmDelete": "Are you sure you want to delete this file?",
+        "confirmDeleteFolder": "Are you sure you want to delete this folder and all its contents?",
+        "shareError": "Failed to share file",
+        "previewError": "Failed to preview file",
+        "previewNotSupported": "This file type is not supported for preview",
+        "urlCopied": "Link copied to clipboard"
       }
     }
   },
@@ -270,21 +402,21 @@
       "features": "기능",
       "pricing": "가격",
       "contact": "문의하기",
-      "privacyPolicy": "개인정보 처리방침",
+      "privacyPolicy": "개인정보 보호정책",
       "termsOfService": "이용약관",
       "faq": "자주 묻는 질문"
     },
     "index": {
       "hero": {
         "title": "CloudDrive에 오신 것을 환영합니다",
-        "subtitle": "안전하고 빠르며 편리한 클라우드 스토리지 솔루션",
+        "subtitle": "안전하고 빠르며 편리한 클라우드 저장 솔루션",
         "cta": "시작하기"
       },
       "features": {
         "title": "주요 기능",
         "security": {
           "title": "안전한 저장",
-          "description": "첨단 암호화 기술로 파일의 안전을 보장합니다"
+          "description": "고급 암호화 기술로 파일의 안전을 보장합니다"
         },
         "speed": {
           "title": "빠른 전송",
@@ -292,48 +424,48 @@
         },
         "access": {
           "title": "언제든지 접근",
-          "description": "다중 기기 지원으로 언제 어디서나 파일 관리 가능"
+          "description": "여러 기기에서 언제 어디서나 파일 관리 지원"
         }
       },
       "whyChooseUs": {
-        "title": "왜 CloudDrive를 선택해야 할까요?",
-        "description": "최고 품질의 클라우드 스토리지 서비스로 손쉬운 데이터 관리를 제공합니다",
-        "cta": "자세히 알아보기"
+        "title": "왜 CloudDrive인가?",
+        "description": "우리는 쉬운 데이터 관리를 위한 최고 품질의 클라우드 스토리지 서비스를 제공합니다",
+        "cta": "더 알아보기"
       },
       "pricing": {
-        "title": "요금제",
+        "title": "가격 플랜",
         "basic": {
           "name": "기본",
-          "price": "₩5,900",
+          "price": "₩5,000",
           "period": "/월",
           "features": [
             "100GB 저장 공간",
             "기본 파일 공유",
-            "표준 지원"
+            "기본 지원"
           ],
-          "cta": "선택하기"
+          "cta": "플랜 선택"
         },
         "pro": {
           "name": "프로",
-          "price": "₩17,900",
+          "price": "₩15,000",
           "period": "/월",
           "features": [
             "1TB 저장 공간",
             "고급 파일 공유",
             "우선 지원"
           ],
-          "cta": "선택하기"
+          "cta": "플랜 선택"
         },
         "enterprise": {
-          "name": "기업용",
-          "price": "₩59,900",
+          "name": "기업",
+          "price": "₩50,000",
           "period": "/월",
           "features": [
             "무제한 저장 공간",
             "기업급 파일 공유",
             "24/7 전담 지원"
           ],
-          "cta": "선택하기"
+          "cta": "플랜 선택"
         }
       },
       "contact": {
@@ -352,9 +484,10 @@
     "drive": {
       "title": "파일 목록",
       "subtitle": "모든 파일 보기",
+      "rootDirectory": "루트 디렉토리",
       "passwordSection": {
         "title": "비밀번호 입력",
-        "placeholder": "비밀번호를 입력해주세요"
+        "placeholder": "비밀번호를 입력하세요"
       },
       "uploadSection": {
         "title": "파일 업로드",
@@ -369,6 +502,14 @@
         },
         "progress": "업로드 진행률: {{progress}}%"
       },
+      "search": {
+        "placeholder": "파일 검색...",
+        "button": "검색",
+        "clearButton": "지우기",
+        "results": "\"{{query}}\"에 대한 검색 결과: {{count}}개 일치",
+        "noResults": "일치하는 파일을 찾을 수 없음",
+        "backToAll": "모든 파일로 돌아가기"
+      },
       "fileList": {
         "headers": {
           "fileName": "파일 이름",
@@ -377,21 +518,78 @@
           "actions": "작업"
         },
         "actions": {
-          "showQR": "QR 코드 표시",
-          "download": "다운로드"
+          "preview": "미리보기",
+          "share": "공유",
+          "showQR": "QR 코드",
+          "rename": "이름 변경",
+          "download": "다운로드",
+          "delete": "삭제"
+        },
+        "emptyFolder": "이 폴더는 비어 있습니다",
+        "loadMore": "더 로드"
+      },
+      "folder": {
+        "createButton": "새 폴더",
+        "createModalTitle": "새 폴더 만들기",
+        "namePlaceholder": "폴더 이름 입력",
+        "createAction": "만들기",
+        "cancelAction": "취소"
+      },
+      "rename": {
+        "modalTitle": "이름 변경",
+        "newNamePlaceholder": "새 이름 입력",
+        "renameAction": "이름 변경",
+        "cancelAction": "취소"
+      },
+      "share": {
+        "modalTitle": "파일 공유",
+        "validityPeriod": "유효 기간",
+        "validity": {
+          "1day": "1일",
+          "7days": "7일",
+          "30days": "30일",
+          "90days": "90일"
+        },
+        "requirePassword": "비밀번호 필요",
+        "passwordPlaceholder": "접근 비밀번호 설정",
+        "shareAction": "공유",
+        "cancelAction": "취소",
+        "successTitle": "공유 링크가 성공적으로 생성되었습니다!",
+        "copyAction": "링크 복사",
+        "closeAction": "닫기"
+      },
+      "preview": {
+        "partialContent": "파일이 크기 때문에 일부 내용만 표시됩니다",
+        "notSupported": {
+          "video": "브라우저가 비디오 미리보기를 지원하지 않습니다",
+          "audio": "브라우저가 오디오 미리보기를 지원하지 않습니다"
         }
       },
       "qrCode": {
         "close": "닫기"
       },
       "messages": {
-        "selectFile": "먼저 파일을 선택해주세요",
-        "uploadSuccess": "파일 업로드 성공",
-        "uploadError": "파일 업로드 실패, 나중에 다시 시도해주세요",
-        "enterUrl": "파일 URL을 입력해주세요",
-        "urlUploadSuccess": "URL을 통한 파일 업로드 성공",
-        "urlUploadError": "URL을 통한 파일 업로드 실패, 나중에 다시 시도해주세요",
-        "fetchError": "파일 목록을 가져오지 못했습니다. 비밀번호가 올바른지 확인해주세요"
+        "selectFile": "먼저 파일을 선택하세요",
+        "uploadSuccess": "파일이 성공적으로 업로드되었습니다",
+        "uploadError": "파일 업로드에 실패했습니다. 다시 시도하세요",
+        "enterUrl": "파일 URL을 입력하세요",
+        "enterFileName": "파일 이름을 입력하세요",
+        "enterFolderName": "폴더 이름을 입력하세요",
+        "urlUploadSuccess": "URL을 통해 파일이 성공적으로 업로드되었습니다",
+        "urlUploadError": "URL을 통한 파일 업로드에 실패했습니다. 다시 시도하세요",
+        "fetchError": "파일 목록을 가져오지 못했습니다. 비밀번호를 확인하세요",
+        "folderCreateSuccess": "폴더가 성공적으로 생성되었습니다",
+        "folderCreateError": "폴더 생성에 실패했습니다",
+        "renameSuccess": "이름이 성공적으로 변경되었습니다",
+        "renameError": "이름 변경에 실패했습니다",
+        "deleteSuccess": "성공적으로 삭제되었습니다",
+        "deleteError": "삭제에 실패했습니다",
+        "confirmDelete": "이 파일을 삭제하시겠습니까?",
+        "confirmDeleteFolder": "이 폴더와 모든 내용을 삭제하시겠습니까?",
+        "shareError": "파일 공유에 실패했습니다",
+        "previewError": "파일 미리보기에 실패했습니다",
+        "previewNotSupported": "이 파일 유형은 미리보기를 지원하지 않습니다",
+        "urlCopied": "링크가 클립보드에 복사되었습니다"
       }
     }
   }

@@ -11,14 +11,21 @@ export async function onRequest(context) {
       return new Response('授权失败', { status: 403 });
     }
 
-    const { url, savePath = 'download', fileName } = await context.request.json();
+    const { url, path = '', fileName } = await context.request.json();
 
     if (!url) {
       return new Response('缺少文件下载地址', { status: 400 });
     }
 
+    if (!fileName) {
+      return new Response('缺少文件名', { status: 400 });
+    }
+
     const bucket = context.env.fastdriver2;
-    const key = `${savePath}/${fileName || 'unknown'}`;
+    
+    // 处理路径，确保格式正确
+    const normalizedPath = path ? (path.endsWith('/') ? path : `${path}/`) : '';
+    const key = `${normalizedPath}${fileName}`;
 
     // 创建多部分上传
     const multipartUpload = await bucket.createMultipartUpload(key);
@@ -29,6 +36,9 @@ export async function onRequest(context) {
     if (!response.ok) {
       throw new Error('文件下载失败');
     }
+
+    // 获取文件类型信息
+    const contentType = response.headers.get('content-type') || 'application/octet-stream';
 
     const reader = response.body.getReader();
     const partSize = 10 * 1024 * 1024; // 10MB
@@ -59,12 +69,35 @@ export async function onRequest(context) {
     }
 
     // 完成多部分上传
-    await multipartUpload.complete(parts);
+    const object = await multipartUpload.complete(parts);
 
-    return new Response('文件上传成功', { status: 200 });
+    // 更新文件元数据，包括内容类型
+    if (contentType !== 'application/octet-stream') {
+      await bucket.put(key, await (await bucket.get(key)).arrayBuffer(), {
+        httpMetadata: { contentType }
+      });
+    }
+
+    return new Response(JSON.stringify({
+      success: true,
+      message: '文件上传成功',
+      fileName: key,
+      size: object.size,
+      contentType
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    });
   } catch (error) {
     console.error('文件上传失败:', error);
-    return new Response('文件上传失败', { status: 500 });
+    return new Response(JSON.stringify({
+      success: false,
+      message: '文件上传失败',
+      error: error.message
+    }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 }
 
