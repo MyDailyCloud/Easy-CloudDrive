@@ -54,7 +54,7 @@ document.addEventListener('DOMContentLoaded', () => {
         previewType: '', // 'image', 'pdf', 'text', 'video', 'audio'
         previewContent: '', // URL or text content for preview
         isPartialContent: false, // Flag if preview content is truncated
-        authToken: localStorage.getItem('authToken') || null, // Load token on init
+        authToken: localStorage.getItem('authToken') || '', // Load token on init (use empty string as default)
       },
       // --- Computed ---
       computed: {
@@ -117,17 +117,15 @@ document.addEventListener('DOMContentLoaded', () => {
         },
 
         // --- API Calls & File Operations ---
-        getApiHeaders(contentType = 'application/json', needsContent = true) {
+        getAuthHeaders(contentType = 'application/json', needsContent = true) {
             const headers = {};
             if (needsContent && contentType) { // Only add Content-Type if needed and provided
                  headers['Content-Type'] = contentType;
             }
-            this.authToken = localStorage.getItem('authToken') || null; // Refresh token
             if (this.authToken) {
                 headers['Authorization'] = `Bearer ${this.authToken}`;
             } else {
                 console.warn("Auth token missing for API call.");
-                // Consider redirecting to login or showing an error message
             }
             return headers;
         },
@@ -139,7 +137,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 this.files = []; // Clear files unless loading more
             }
             console.log(`Fetching files for path: '${path}', cursor: ${this.currentCursor}, loadMore: ${loadMore}, searchMode: ${this.isSearchMode}`);
-            const headers = this.getApiHeaders(null, false); // No content-type needed for GET
+            const headers = this.getAuthHeaders(null, false); // No content-type needed for GET
 
             try {
                 const endpoint = this.isSearchMode ? '/searchFiles' : '/getfilelist';
@@ -270,7 +268,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             const folderPath = this.currentPath + folderName + '/'; // Folders need trailing slash
             console.log("Creating folder:", folderPath);
-            const headers = this.getApiHeaders(); // Default Content-Type: application/json
+            const headers = this.getAuthHeaders(); // Default Content-Type: application/json
 
             try {
                 const response = await fetch('/createFolder', {
@@ -331,7 +329,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             console.log(`Renaming '${oldFullName}' to '${newFullName}'`);
-            const headers = this.getApiHeaders();
+            const headers = this.getAuthHeaders();
 
             try {
                 const response = await fetch('/renameFile', {
@@ -360,7 +358,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!confirm(confirmMessage)) return;
 
             console.log("Deleting:", file.name);
-            const headers = this.getApiHeaders(null, false); // No content-type for DELETE
+            const headers = this.getAuthHeaders(null, false); // No content-type for DELETE
 
             try {
                 const response = await fetch(`/deleteFile?path=${encodeURIComponent(file.name)}`, {
@@ -419,7 +417,7 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log("Uploading directly (PUT)...");
             this.uploadProgress = 1; // Indicate start
             // Get headers *without* Content-Type initially
-            const headers = this.getApiHeaders(null, false);
+            const headers = this.getAuthHeaders(null, false);
             // Note: Fetch often adds Content-Type based on body type,
             // but R2 might infer application/octet-stream for PUT body.
             // If uploads fail, explicitly set 'application/octet-stream' here.
@@ -456,7 +454,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const chunkSize = 10 * 1024 * 1024; // 10MB parts
             const totalChunks = Math.ceil(fileSize / chunkSize);
             this.uploadProgress = 0;
-            const baseHeaders = this.getApiHeaders(); // Get headers with token
+            const baseHeaders = this.getAuthHeaders(); // Get headers with token
             let uploadId = null;
 
             try {
@@ -482,7 +480,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const chunk = this.selectedFile.slice(start, end);
                     console.log(`Uploading part ${partNumber}/${totalChunks}, size: ${chunk.size}`);
 
-                    const partHeaders = this.getApiHeaders(null, false); // No content type for part PUT
+                    const partHeaders = this.getAuthHeaders(null, false); // No content type for part PUT
                     const partUploadUrl = `/uploadfile?action=mpu-uploadpart&uploadId=${uploadId}&partNumber=${partNumber}&path=${encodeURIComponent(this.currentPath)}&fileName=${encodeURIComponent(finalFileName)}`;
 
                     const partResponse = await fetch(partUploadUrl, { method: 'PUT', headers: partHeaders, body: chunk });
@@ -525,7 +523,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     console.log("Attempting to abort MPU due to error...");
                     const abortUrl = `/uploadfile?action=mpu-abort&uploadId=${uploadId}&path=${encodeURIComponent(this.currentPath)}&fileName=${encodeURIComponent(finalFileName)}`;
                     try {
-                        const abortHeaders = this.getApiHeaders(null, false);
+                        const abortHeaders = this.getAuthHeaders(null, false);
                         await fetch(abortUrl, { method: 'DELETE', headers: abortHeaders });
                         console.log("Abort request sent for uploadId:", uploadId);
                     } catch (abortError) {
@@ -558,7 +556,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const fullPath = this.currentPath + fileName;
             console.log(`Uploading from URL: ${url} to ${fullPath}`);
-            const headers = this.getApiHeaders();
+            const headers = this.getAuthHeaders();
 
             try {
                 const response = await fetch('/uploadbyurl', {
@@ -586,7 +584,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (file.type === 'folder') return;
             console.log("Attempting to preview file:", file);
             const { contentType = '', name: filePath } = file;
-            const headers = this.getApiHeaders(null, false);
+            const headers = this.getAuthHeaders(null, false);
 
             try {
                 const isImage = contentType.startsWith('image/');
@@ -673,7 +671,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         async shareFileAction() { // Renamed
             console.log(`Sharing file: ${this.shareFilePath}, expires: ${this.shareExpirationDays} days, password required: ${this.shareRequirePassword}`);
-            const headers = this.getApiHeaders();
+            const headers = this.getAuthHeaders();
 
             try {
                 const response = await fetch('/shareFile', {
@@ -819,18 +817,37 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Fetch initial file list for the root directory AFTER language is loaded
         this.fetchFiles(''); // Fetch root path
+
+        // Add event listener for focusing folder name input when modal opens
+        const observer = new MutationObserver(mutations => {
+            mutations.forEach(mutation => {
+                if (mutation.addedNodes.length) {
+                    const folderInput = this.$refs.newFolderNameInput;
+                    if (folderInput && document.body.contains(folderInput)) {
+                        this.$nextTick(() => folderInput.focus());
+                    }
+                    const renameInput = this.$refs.renameInput;
+                    if (renameInput && document.body.contains(renameInput)) {
+                        this.$nextTick(() => renameInput.focus());
+                    }
+                }
+            });
+        });
+        observer.observe(document.getElementById('app'), { childList: true, subtree: true });
       },
       // --- Watchers ---
       watch: {
-           // Save language preference and update html lang attribute
            selectedLanguage(newLang) {
-               localStorage.setItem('selectedLanguage', newLang);
-               document.documentElement.lang = newLang;
-               // We need to reload i18n data when language changes
                this.changeLanguage();
+               localStorage.setItem('selectedLanguage', newLang); // Store preference
            },
-           // Optional: Handle auth token changes if needed
-           // authToken(newToken) { ... }
+           authToken(newToken) {
+              if (newToken) {
+                localStorage.setItem('authToken', newToken);
+              } else {
+                localStorage.removeItem('authToken'); // Remove if empty/null
+              }
+           },
        }
     }); // End of new Vue()
 }); // End of DOMContentLoaded 

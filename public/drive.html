@@ -59,6 +59,11 @@
                         </svg>
                         {{ $t('drive.actions.newFolder') }}
                     </button>
+                    <!-- Auth Token Input -->
+                    <div class="hidden md:flex items-center"> <!-- Hide on small screens -->
+                         <label for="authToken" class="sr-only">{{ $t('drive.authToken.label') }}</label> <!-- Screen reader only label -->
+                         <input type="password" id="authToken" v-model="authToken" :placeholder="$t('drive.authToken.placeholder')" class="border p-2 rounded text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 w-32 lg:w-48" title="{{ $t('drive.authToken.label') }}">
+                    </div>
                     <!-- Add other global actions here, e.g., a global upload button -->
                     <select v-model="selectedLanguage" class="bg-white border rounded-md px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
                         <option value="zh">中文</option>
