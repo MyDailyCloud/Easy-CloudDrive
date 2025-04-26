@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n="common.appName">CloudDrive</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.4.4/build/qrcode.min.js"></script>
+    <script src="/i8n.js"></script>
+</head>
+<body class="bg-gray-100">
+    <div id="app" class="flex h-screen">
+        <!-- 侧边栏 -->
+        <aside class="bg-indigo-600 text-white w-64 flex-shrink-0">
+            <div class="p-4">
+                <h1 class="text-2xl font-bold" data-i18n="common.appName">CloudDrive</h1>
+            </div>
+            <nav class="mt-8">
+                <a href="index.html" class="block py-2 px-4 hover:bg-indigo-700" data-i18n="common.home">首页</a>
+                <a href="#features" class="block py-2 px-4 hover:bg-indigo-700" data-i18n="common.features">功能</a>
+                <a href="#pricing" class="block py-2 px-4 hover:bg-indigo-700" data-i18n="common.pricing">价格</a>
+                <a href="#contact" class="block py-2 px-4 hover:bg-indigo-700" data-i18n="common.contact">联系我们</a>
+            </nav>
+        </aside>
+
+        <!-- 主要内容区 -->
+        <main class="flex-grow p-8">
+            <!-- 语言切换 -->
+            <div class="absolute top-4 right-4">
+                <select v-model="selectedLanguage" @change="changeLanguage" class="bg-white border rounded px-2 py-1">
+                    <option value="zh">中文</option>
+                    <option value="en">English</option>
+                    <option value="ko">한국어</option>
+                </select>
+            </div>
+
+            <header class="mb-8">
+                <h2 class="text-3xl font-bold text-indigo-600" data-i18n="drive.title">文件列表</h2>
+                <p class="text-gray-600 mt-2" data-i18n="drive.subtitle">查看您的所有文件</p>
+            </header>
+
+            <!-- 密码输入区域 -->
+            <section class="bg-white p-8 rounded-lg shadow-md mb-8">
+                <h3 class="text-xl font-bold mb-4" data-i18n="drive.passwordSection.title">输入密码</h3>
+                <div class="mb-4">
+                    <input v-model="password" type="password" :placeholder="$t('drive.passwordSection.placeholder')" class="border p-2 rounded w-full mb-2">
+                    <button @click="fetchFiles" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700">
+                        确认
+                    </button>
+                </div>
+            </section>
+
+            <!-- 文件上传区域 -->
+            <section class="bg-white p-8 rounded-lg shadow-md mb-8">
+                <h3 class="text-xl font-bold mb-4" data-i18n="drive.uploadSection.title">上传文件</h3>
+                <div class="mb-4">
+                    <input type="file" @change="handleFileUpload" class="mb-2">
+                    <input v-model="uploadFileName" type="text" :placeholder="$t('drive.uploadSection.fileUpload.fileNamePlaceholder')" class="border p-2 rounded w-full mb-2">
+                    <button @click="uploadFile" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700" data-i18n="drive.uploadSection.fileUpload.button">
+                        上传文件
+                    </button>
+                </div>
+                <div class="mb-4">
+                    <input v-model="urlToUpload" type="text" :placeholder="$t('drive.uploadSection.urlUpload.urlPlaceholder')" class="border p-2 rounded w-full mb-2">
+                    <input v-model="urlUploadFileName" type="text" :placeholder="$t('drive.uploadSection.urlUpload.fileNamePlaceholder')" class="border p-2 rounded w-full mb-2">
+                    <button @click="uploadFileByUrl" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700" data-i18n="drive.uploadSection.urlUpload.button">
+                        通过URL上传
+                    </button>
+                </div>
+                <p v-if="uploadProgress" class="mt-2" v-html="$t('drive.uploadSection.progress', { progress: uploadProgress })"></p>
+            </section>
+
+            <section class="bg-white p-8 rounded-lg shadow-md">
+                <table class="w-full">
+                    <thead>
+                        <tr>
+                            <th class="text-left py-2" data-i18n="drive.fileList.headers.fileName">文件名</th>
+                            <th class="text-left py-2" data-i18n="drive.fileList.headers.size">大小</th>
+                            <th class="text-left py-2" data-i18n="drive.fileList.headers.uploadTime">上传时间</th>
+                            <th class="text-left py-2" data-i18n="drive.fileList.headers.actions">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="file in files" :key="file.name">
+                            <td class="py-2">{{ file.name }}</td>
+                            <td class="py-2">{{ formatFileSize(file.size) }}</td>
+                            <td class="py-2">{{ formatDate(file.uploaded) }}</td>
+                            <td class="py-2">
+                                <button @click="showQRCode(file)" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded" data-i18n="drive.fileList.actions.showQR">
+                                    显示二维码
+                                </button>
+                                <button @click="downloadFile(file)" class="bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-2 rounded ml-2" data-i18n="drive.fileList.actions.download">
+                                    下载
+                                </button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
+
+            <!-- 二维码弹出层 -->
+            <div v-if="showQR" class="fixed top-0 left-0 w-full h-full flex items-center justify-center bg-black bg-opacity-50">
+                <div class="bg-white p-4 rounded-lg">
+                    <h3 class="text-lg font-bold mb-2">{{ currentFile.name }}</h3>
+                    <div id="qrcode"></div>
+                    <button @click="hideQRCode" class="mt-4 bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded" data-i18n="drive.qrCode.close">
+                        关闭
+                    </button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <footer class="bg-gray-800 text-white py-8">
+        <div class="container mx-auto px-6 text-center">
+            <p data-i18n="index.footer.copyright">&copy; 2023 CloudDrive. 保留所有权利。</p>
+            <div class="mt-4">
+                <a href="#" class="mx-2 hover:text-indigo-400" data-i18n="common.privacyPolicy">隐私政策</a>
+                <a href="#" class="mx-2 hover:text-indigo-400" data-i18n="common.termsOfService">使用条款</a>
+                <a href="#" class="mx-2 hover:text-indigo-400" data-i18n="common.faq">常见问题</a>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        new Vue({
+            el: '#app',
+            data: {
+                files: [],
+                showQR: false,
+                currentFile: null,
+                selectedFile: null,
+                uploadProgress: 0,
+                urlToUpload: '',
+                password: '',
+                uploadFileName: '',
+                urlUploadFileName: '',
+                selectedLanguage: 'zh',
+                i18n: null
+            },
+            methods: {
+                async fetchFiles() {
+                    try {
+                        const response = await fetch('/getfilelist', {
+                            headers: {
+                                'Authorization': `Bearer ${this.password}`
+                            }
+                        });
+                        if (!response.ok) {
+                            throw new Error(this.$t('drive.messages.fetchError'));
+                        }
+                        this.files = await response.json();
+                    } catch (error) {
+                        console.error('获取文件列表出错:', error);
+                        alert(this.$t('drive.messages.fetchError'));
+                    }
+                },
+                formatFileSize(size) {
+                    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+                    let i = 0;
+                    while (size >= 1024 && i < units.length - 1) {
+                        size /= 1024;
+                        i++;
+                    }
+                    return `${size.toFixed(2)} ${units[i]}`;
+                },
+                formatDate(dateString) {
+                    const date = new Date(dateString);
+                    return date.toLocaleString(this.selectedLanguage);
+                },
+                showQRCode(file) {
+                    this.currentFile = file;
+                    const downloadLink = this.getDownloadLink(file.name);
+                    this.showQR = true;
+                    this.$nextTick(() => {
+                        QRCode.toCanvas(document.getElementById('qrcode'), downloadLink, (error) => {
+                            if (error) console.error(error);
+                            console.log('QR码生成成功');
+                        });
+                    });
+                },
+                hideQRCode() {
+                    this.showQR = false;
+                    this.currentFile = null;
+                },
+                getDownloadLink(fileName) {
+                    return `https://fastdrive.myfastools.com/${encodeURIComponent(fileName)}`;
+                },
+                handleFileUpload(event) {
+                    this.selectedFile = event.target.files[0];
+                },
+                async uploadFile() {
+                    if (!this.selectedFile) {
+                        alert(this.$t('drive.messages.selectFile'));
+                        return;
+                    }
+
+                    const fileName = this.uploadFileName || this.selectedFile.name;
+                    const fileSize = this.selectedFile.size;
+                    const chunkSize = 10 * 1024 * 1024; // 10MB
+                    const totalChunks = Math.ceil(fileSize / chunkSize);
+
+                    try {
+                        // 创建多部分上传
+                        const createResponse = await fetch(`/uploadfile?action=mpu-create`, {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': `Bearer ${this.password}`
+                            },
+                            body: JSON.stringify({ fileName })
+                        });
+                        const { uploadId } = await createResponse.json();
+
+                        // 上传各个部分
+                        const uploadedParts = [];
+                        for (let i = 0; i < totalChunks; i++) {
+                            const start = i * chunkSize;
+                            const end = Math.min(start + chunkSize, fileSize);
+                            const chunk = this.selectedFile.slice(start, end);
+
+                            const partResponse = await fetch(`/uploadfile?action=mpu-uploadpart&uploadId=${uploadId}&partNumber=${i + 1}`, {
+                                method: 'PUT',
+                                headers: {
+                                    'Authorization': `Bearer ${this.password}`
+                                },
+                                body: chunk
+                            });
+                            const partData = await partResponse.json();
+                            uploadedParts.push(partData);
+
+                            this.uploadProgress = Math.round((i + 1) / totalChunks * 100);
+                        }
+
+                        // 完成多部分上传
+                        const completeResponse = await fetch(`/uploadfile?action=mpu-complete&uploadId=${uploadId}`, {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': `Bearer ${this.password}`,
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({ parts: uploadedParts })
+                        });
+
+                        if (!completeResponse.ok) {
+                            throw new Error(this.$t('drive.messages.uploadError'));
+                        }
+
+                        alert(this.$t('drive.messages.uploadSuccess'));
+                        this.fetchFiles();
+                        this.selectedFile = null;
+                        this.uploadFileName = '';
+                        this.uploadProgress = 0;
+                    } catch (error) {
+                        console.error('文件上传出错:', error);
+                        alert(this.$t('drive.messages.uploadError'));
+                        this.uploadProgress = 0;
+                    }
+                },
+                async uploadFileByUrl() {
+                    if (!this.urlToUpload) {
+                        alert(this.$t('drive.messages.enterUrl'));
+                        return;
+                    }
+
+                    try {
+                        const response = await fetch('/uploadbyurl', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${this.password}`
+                            },
+                            body: JSON.stringify({ 
+                                url: this.urlToUpload,
+                                fileName: this.urlUploadFileName
+                            }),
+                        });
+
+                        if (!response.ok) {
+                            throw new Error(this.$t('drive.messages.urlUploadError'));
+                        }
+
+                        alert(this.$t('drive.messages.urlUploadSuccess'));
+                        this.fetchFiles();
+                        this.urlToUpload = '';
+                        this.urlUploadFileName = '';
+                    } catch (error) {
+                        console.error('通过URL上传文件出错:', error);
+                        alert(this.$t('drive.messages.urlUploadError'));
+                    }
+                },
+                async downloadFile(file) {
+                    const downloadLink = this.getDownloadLink(file.name);
+                    window.open(downloadLink, '_blank');
+                },
+                async changeLanguage() {
+                    this.i18n = await loadLanguage(this.selectedLanguage);
+                    updatePageText(this.i18n);
+                },
+                $t(key, params = {}) {
+                    if (!this.i18n) return key;
+                    const keys = key.split('.');
+                    let value = this.i18n;
+                    for (const k of keys) {
+                        value = value[k];
+                        if (!value) return key;
+                    }
+                    return typeof value === 'string' ? this.interpolate(value, params) : value;
+                },
+                interpolate(template, params) {
+                    return template.replace(/\{\{(\w+)\}\}/g, (_, key) => params[key] || '');
+                }
+            },
+            async mounted() {
+                this.i18n = await loadLanguage(this.selectedLanguage);
+                updatePageText(this.i18n);
+            }
+        });
+    </script>
+</body>
+</html>

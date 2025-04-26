@@ -1,0 +1,398 @@
+{
+  "zh": {
+    "common": {
+      "appName": "CloudDrive",
+      "home": "首页",
+      "features": "功能",
+      "pricing": "价格",
+      "contact": "联系我们",
+      "privacyPolicy": "隐私政策",
+      "termsOfService": "使用条款",
+      "faq": "常见问题"
+    },
+    "index": {
+      "hero": {
+        "title": "欢迎使用 CloudDrive",
+        "subtitle": "安全、快速、便捷的云端存储解决方案",
+        "cta": "立即开始"
+      },
+      "features": {
+        "title": "主要功能",
+        "security": {
+          "title": "安全存储",
+          "description": "使用先进的加密技术，确保您的文件安全无虞"
+        },
+        "speed": {
+          "title": "快速传输",
+          "description": "高速上传下载，让您的文件传输更加便捷"
+        },
+        "access": {
+          "title": "随时访问",
+          "description": "支持多设备访问，随时随地管理您的文件"
+        }
+      },
+      "whyChooseUs": {
+        "title": "为什么选择 CloudDrive？",
+        "description": "我们提供最优质的云存储服务，让您的数据管理更加轻松自如",
+        "cta": "了解更多"
+      },
+      "pricing": {
+        "title": "价格方案",
+        "basic": {
+          "name": "基础版",
+          "price": "¥29",
+          "period": "/月",
+          "features": [
+            "100GB 存储空间",
+            "基础文件共享",
+            "标准客户支持"
+          ],
+          "cta": "选择方案"
+        },
+        "pro": {
+          "name": "专业版",
+          "price": "¥99",
+          "period": "/月",
+          "features": [
+            "1TB 存储空间",
+            "高级文件共享",
+            "优先客户支持"
+          ],
+          "cta": "选择方案"
+        },
+        "enterprise": {
+          "name": "企业版",
+          "price": "¥299",
+          "period": "/月",
+          "features": [
+            "无限存储空间",
+            "企业级文件共享",
+            "24/7 专属支持"
+          ],
+          "cta": "选择方案"
+        }
+      },
+      "contact": {
+        "title": "联系我们",
+        "form": {
+          "name": "姓名",
+          "email": "邮箱",
+          "message": "留言",
+          "submit": "发送消息"
+        }
+      },
+      "footer": {
+        "copyright": "© 2023 CloudDrive. 保留所有权利。"
+      }
+    },
+    "drive": {
+      "title": "文件列表",
+      "subtitle": "查看您的所有文件",
+      "passwordSection": {
+        "title": "输入密码",
+        "placeholder": "请输入密码"
+      },
+      "uploadSection": {
+        "title": "上传文件",
+        "fileUpload": {
+          "button": "上传文件",
+          "fileNamePlaceholder": "指定保存的文件名（可选）"
+        },
+        "urlUpload": {
+          "urlPlaceholder": "输入文件URL",
+          "fileNamePlaceholder": "指定保存的文件名（可选）",
+          "button": "通过URL上传"
+        },
+        "progress": "上传进度: {{progress}}%"
+      },
+      "fileList": {
+        "headers": {
+          "fileName": "文件名",
+          "size": "大小",
+          "uploadTime": "上传时间",
+          "actions": "操作"
+        },
+        "actions": {
+          "showQR": "显示二维码",
+          "download": "下载"
+        }
+      },
+      "qrCode": {
+        "close": "关闭"
+      },
+      "messages": {
+        "selectFile": "请先选择文件",
+        "uploadSuccess": "文件上传成功",
+        "uploadError": "文件上传失败，请稍后重试",
+        "enterUrl": "请输入文件URL",
+        "urlUploadSuccess": "通过URL上传文件成功",
+        "urlUploadError": "通过URL上传文件失败，请稍后重试",
+        "fetchError": "获取文件列表失败，请检查密码是否正确"
+      }
+    }
+  },
+  "en": {
+    "common": {
+      "appName": "CloudDrive",
+      "home": "Home",
+      "features": "Features",
+      "pricing": "Pricing",
+      "contact": "Contact Us",
+      "privacyPolicy": "Privacy Policy",
+      "termsOfService": "Terms of Service",
+      "faq": "FAQ"
+    },
+    "index": {
+      "hero": {
+        "title": "Welcome to CloudDrive",
+        "subtitle": "Secure, fast, and convenient cloud storage solution",
+        "cta": "Get Started"
+      },
+      "features": {
+        "title": "Key Features",
+        "security": {
+          "title": "Secure Storage",
+          "description": "Advanced encryption technology ensures your files are safe"
+        },
+        "speed": {
+          "title": "Fast Transfer",
+          "description": "High-speed upload and download for convenient file transfer"
+        },
+        "access": {
+          "title": "Access Anytime",
+          "description": "Multi-device support for managing your files anywhere, anytime"
+        }
+      },
+      "whyChooseUs": {
+        "title": "Why Choose CloudDrive?",
+        "description": "We provide the highest quality cloud storage service for effortless data management",
+        "cta": "Learn More"
+      },
+      "pricing": {
+        "title": "Pricing Plans",
+        "basic": {
+          "name": "Basic",
+          "price": "$4.99",
+          "period": "/month",
+          "features": [
+            "100GB Storage",
+            "Basic File Sharing",
+            "Standard Support"
+          ],
+          "cta": "Choose Plan"
+        },
+        "pro": {
+          "name": "Pro",
+          "price": "$14.99",
+          "period": "/month",
+          "features": [
+            "1TB Storage",
+            "Advanced File Sharing",
+            "Priority Support"
+          ],
+          "cta": "Choose Plan"
+        },
+        "enterprise": {
+          "name": "Enterprise",
+          "price": "$49.99",
+          "period": "/month",
+          "features": [
+            "Unlimited Storage",
+            "Enterprise-grade File Sharing",
+            "24/7 Dedicated Support"
+          ],
+          "cta": "Choose Plan"
+        }
+      },
+      "contact": {
+        "title": "Contact Us",
+        "form": {
+          "name": "Name",
+          "email": "Email",
+          "message": "Message",
+          "submit": "Send Message"
+        }
+      },
+      "footer": {
+        "copyright": "© 2023 CloudDrive. All rights reserved."
+      }
+    },
+    "drive": {
+      "title": "File List",
+      "subtitle": "View all your files",
+      "passwordSection": {
+        "title": "Enter Password",
+        "placeholder": "Please enter password"
+      },
+      "uploadSection": {
+        "title": "Upload File",
+        "fileUpload": {
+          "button": "Upload File",
+          "fileNamePlaceholder": "Specify file name to save (optional)"
+        },
+        "urlUpload": {
+          "urlPlaceholder": "Enter file URL",
+          "fileNamePlaceholder": "Specify file name to save (optional)",
+          "button": "Upload via URL"
+        },
+        "progress": "Upload progress: {{progress}}%"
+      },
+      "fileList": {
+        "headers": {
+          "fileName": "File Name",
+          "size": "Size",
+          "uploadTime": "Upload Time",
+          "actions": "Actions"
+        },
+        "actions": {
+          "showQR": "Show QR Code",
+          "download": "Download"
+        }
+      },
+      "qrCode": {
+        "close": "Close"
+      },
+      "messages": {
+        "selectFile": "Please select a file first",
+        "uploadSuccess": "File uploaded successfully",
+        "uploadError": "File upload failed, please try again later",
+        "enterUrl": "Please enter file URL",
+        "urlUploadSuccess": "File uploaded via URL successfully",
+        "urlUploadError": "File upload via URL failed, please try again later",
+        "fetchError": "Failed to fetch file list, please check if the password is correct"
+      }
+    }
+  },
+  "ko": {
+    "common": {
+      "appName": "CloudDrive",
+      "home": "홈",
+      "features": "기능",
+      "pricing": "가격",
+      "contact": "문의하기",
+      "privacyPolicy": "개인정보 처리방침",
+      "termsOfService": "이용약관",
+      "faq": "자주 묻는 질문"
+    },
+    "index": {
+      "hero": {
+        "title": "CloudDrive에 오신 것을 환영합니다",
+        "subtitle": "안전하고 빠르며 편리한 클라우드 스토리지 솔루션",
+        "cta": "시작하기"
+      },
+      "features": {
+        "title": "주요 기능",
+        "security": {
+          "title": "안전한 저장",
+          "description": "첨단 암호화 기술로 파일의 안전을 보장합니다"
+        },
+        "speed": {
+          "title": "빠른 전송",
+          "description": "고속 업로드 및 다운로드로 편리한 파일 전송"
+        },
+        "access": {
+          "title": "언제든지 접근",
+          "description": "다중 기기 지원으로 언제 어디서나 파일 관리 가능"
+        }
+      },
+      "whyChooseUs": {
+        "title": "왜 CloudDrive를 선택해야 할까요?",
+        "description": "최고 품질의 클라우드 스토리지 서비스로 손쉬운 데이터 관리를 제공합니다",
+        "cta": "자세히 알아보기"
+      },
+      "pricing": {
+        "title": "요금제",
+        "basic": {
+          "name": "기본",
+          "price": "₩5,900",
+          "period": "/월",
+          "features": [
+            "100GB 저장 공간",
+            "기본 파일 공유",
+            "표준 지원"
+          ],
+          "cta": "선택하기"
+        },
+        "pro": {
+          "name": "프로",
+          "price": "₩17,900",
+          "period": "/월",
+          "features": [
+            "1TB 저장 공간",
+            "고급 파일 공유",
+            "우선 지원"
+          ],
+          "cta": "선택하기"
+        },
+        "enterprise": {
+          "name": "기업용",
+          "price": "₩59,900",
+          "period": "/월",
+          "features": [
+            "무제한 저장 공간",
+            "기업급 파일 공유",
+            "24/7 전담 지원"
+          ],
+          "cta": "선택하기"
+        }
+      },
+      "contact": {
+        "title": "문의하기",
+        "form": {
+          "name": "이름",
+          "email": "이메일",
+          "message": "메시지",
+          "submit": "메시지 보내기"
+        }
+      },
+      "footer": {
+        "copyright": "© 2023 CloudDrive. 모든 권리 보유."
+      }
+    },
+    "drive": {
+      "title": "파일 목록",
+      "subtitle": "모든 파일 보기",
+      "passwordSection": {
+        "title": "비밀번호 입력",
+        "placeholder": "비밀번호를 입력해주세요"
+      },
+      "uploadSection": {
+        "title": "파일 업로드",
+        "fileUpload": {
+          "button": "파일 업로드",
+          "fileNamePlaceholder": "저장할 파일 이름 지정 (선택사항)"
+        },
+        "urlUpload": {
+          "urlPlaceholder": "파일 URL 입력",
+          "fileNamePlaceholder": "저장할 파일 이름 지정 (선택사항)",
+          "button": "URL로 업로드"
+        },
+        "progress": "업로드 진행률: {{progress}}%"
+      },
+      "fileList": {
+        "headers": {
+          "fileName": "파일 이름",
+          "size": "크기",
+          "uploadTime": "업로드 시간",
+          "actions": "작업"
+        },
+        "actions": {
+          "showQR": "QR 코드 표시",
+          "download": "다운로드"
+        }
+      },
+      "qrCode": {
+        "close": "닫기"
+      },
+      "messages": {
+        "selectFile": "먼저 파일을 선택해주세요",
+        "uploadSuccess": "파일 업로드 성공",
+        "uploadError": "파일 업로드 실패, 나중에 다시 시도해주세요",
+        "enterUrl": "파일 URL을 입력해주세요",
+        "urlUploadSuccess": "URL을 통한 파일 업로드 성공",
+        "urlUploadError": "URL을 통한 파일 업로드 실패, 나중에 다시 시도해주세요",
+        "fetchError": "파일 목록을 가져오지 못했습니다. 비밀번호가 올바른지 확인해주세요"
+      }
+    }
+  }
+}
