@@ -8,7 +8,6 @@ new Vue({
     selectedFile: null,
     uploadProgress: 0,
     urlToUpload: '',
-    password: '',
     uploadFileName: '',
     urlUploadFileName: '',
     selectedLanguage: 'zh',
@@ -136,11 +135,7 @@ new Vue({
           }
         }
         
-        const response = await fetch(`${endpoint}?${params.toString()}`, {
-          headers: {
-            'Authorization': `Bearer ${this.password}`
-          }
-        });
+        const response = await fetch(`${endpoint}?${params.toString()}`);
         
         if (!response.ok) {
           throw new Error(this.$t('drive.messages.fetchError'));
@@ -172,11 +167,7 @@ new Vue({
         params.append('pageSize', this.pageSize);
         params.append('cursor', this.currentCursor);
         
-        const response = await fetch(`/getfilelist?${params.toString()}`, {
-          headers: {
-            'Authorization': `Bearer ${this.password}`
-          }
-        });
+        const response = await fetch(`/getfilelist?${params.toString()}`);
         
         if (!response.ok) {
           throw new Error(this.$t('drive.messages.fetchError'));
@@ -275,7 +266,6 @@ new Vue({
         const response = await fetch('/createFolder', {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${this.password}`,
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({ folderPath })
@@ -332,7 +322,6 @@ new Vue({
         const response = await fetch('/renameFile', {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${this.password}`,
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
@@ -363,10 +352,7 @@ new Vue({
       
       try {
         const response = await fetch(`/deleteFile?path=${encodeURIComponent(file.name)}`, {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${this.password}`
-          }
+          method: 'DELETE'
         });
         
         if (!response.ok) {
@@ -403,7 +389,6 @@ new Vue({
         const createResponse = await fetch(`/uploadfile?action=mpu-create`, {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${this.password}`,
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({ 
@@ -423,9 +408,6 @@ new Vue({
 
           const partResponse = await fetch(`/uploadfile?action=mpu-uploadpart&uploadId=${uploadId}&partNumber=${i + 1}&path=${encodeURIComponent(this.currentPath)}&fileName=${encodeURIComponent(fileName)}`, {
             method: 'PUT',
-            headers: {
-              'Authorization': `Bearer ${this.password}`
-            },
             body: chunk
           });
           
@@ -439,7 +421,6 @@ new Vue({
         const completeResponse = await fetch(`/uploadfile?action=mpu-complete&uploadId=${uploadId}&path=${encodeURIComponent(this.currentPath)}&fileName=${encodeURIComponent(fileName)}`, {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${this.password}`,
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({ parts: uploadedParts })
@@ -475,7 +456,6 @@ new Vue({
         const response = await fetch('/uploadbyurl', {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${this.password}`,
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
@@ -530,11 +510,7 @@ new Vue({
         this.showPreview = true;
         
         // 获取预览内容
-        const response = await fetch(`/previewFile?file=${encodeURIComponent(file.name)}`, {
-          headers: {
-            'Authorization': `Bearer ${this.password}`
-          }
-        });
+        const response = await fetch(`/previewFile?file=${encodeURIComponent(file.name)}`);
         
         if (!response.ok) {
           throw new Error(this.$t('drive.messages.previewError'));
@@ -585,7 +561,6 @@ new Vue({
         const response = await fetch('/shareFile', {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${this.password}`,
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
@@ -666,10 +641,8 @@ new Vue({
   mounted() {
     // 初始化
     this.changeLanguage().then(() => {
-      // 在语言加载完成后加载文件列表
-      if (this.password) {
-        this.fetchFiles();
-      }
+      // 语言加载完成后立即加载文件列表
+      this.fetchFiles();
     });
   }
 }); 
